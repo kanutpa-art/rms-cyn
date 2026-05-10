@@ -1,5 +1,5 @@
-// ใช้ node:sqlite ที่ built-in มากับ Node.js 22+ (ไม่ต้องติดตั้งแยก)
-const { DatabaseSync } = require('node:sqlite');
+// ใช้ better-sqlite3 (รองรับทุก Node version ตั้งแต่ 14+)
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,7 +8,7 @@ const DB_PATH = path.join(__dirname, '../../data/rms.db');
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new DatabaseSync(DB_PATH);
+const db = new Database(DB_PATH);
 
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
