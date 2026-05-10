@@ -4,7 +4,7 @@
   "description": "LINE-First Dormitory Management System",
   "main": "server.js",
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "start": "node scripts/seed.js && node server.js",
