@@ -70,12 +70,14 @@ function serveHtml(htmlPath) {
 app.use('/line/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Serve static files under BASE path (and also at root for dev convenience)
+// Serve static files - disable directory redirect/index so /admin stays /admin
+// (prevents Vercel proxy from getting redirected outside /RMS prefix)
+const staticOpts = { index: false, redirect: false };
 if (BASE) {
-  app.use(BASE, express.static(path.join(__dirname, 'public')));
+  app.use(BASE, express.static(path.join(__dirname, 'public'), staticOpts));
   app.use(`${BASE}/uploads`, express.static(path.join(__dirname, 'uploads')));
 }
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), staticOpts));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(session({
