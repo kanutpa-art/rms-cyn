@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ผูก LINE Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{colors:{line:'#06C755'},fontFamily:{sans:['Prompt','sans-serif']}}}}</script>
+<style>body{font-family:'Prompt',sans-serif;background:#f8fafc}</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md text-center" id="card">
+  <div id="loading" class="py-12">
+    <div class="w-12 h-12 border-4 border-line border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+    <p class="text-gray-500">กำลังเชื่อมต่อ LINE...</p>
+  </div>
+  <div id="success" class="hidden">
+    <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h1 class="text-xl font-bold text-gray-900 mb-2">ผูก LINE สำเร็จ!</h1>
+    <p class="text-gray-600 text-sm mb-2">บัญชีแอดมิน <span id="adminName" class="font-semibold"></span></p>
+    <p class="text-gray-500 text-xs mb-6">ตอนนี้คุณสั่งงานระบบผ่าน LINE chat ได้แล้ว</p>
+    <p class="text-xs text-gray-400">ปิดหน้าต่างนี้และพิมพ์ "help" ใน LINE chat ได้เลย</p>
+  </div>
+  <div id="error" class="hidden">
+    <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </div>
+    <h1 class="text-xl font-bold text-gray-900 mb-2">ไม่สำเร็จ</h1>
+    <p class="text-gray-600 text-sm" id="errMsg"></p>
+  </div>
+</div>
+
+<script>
+const token = location.pathname.split('/').pop();
+const params = new URLSearchParams(location.search);
+const LIFF_ID = params.get('liff_id') || '';
+const dormitoryId = params.get('dorm') || '';
+
+(async () => {
+  try {
+    let lineUserId = params.get('debug_user');
+    if (!lineUserId && LIFF_ID) {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+      const profile = await liff.getProfile();
+      lineUserId = profile.userId;
+    }
+    if (!lineUserId) throw new Error('ต้องเปิดผ่าน LINE หรือมี LIFF ID ในลิงก์');
+    if (!dormitoryId) throw new Error('ลิงก์ขาดข้อมูล dorm');
+
+    const r = await fetch(`/line/admin-link/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lineUserId, dormitoryId })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'ผูก LINE ล้มเหลว');
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('success').classList.remove('hidden');
+    document.getElementById('adminName').textContent = data.admin_name || '';
+  } catch (err) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('error').classList.remove('hidden');
+    document.getElementById('errMsg').textContent = err.message;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Rich Menu Preview</title>
+<style>
+  body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;padding:20px;margin:0}
+  h2{color:#333}
+  .menu{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:0;width:600px;height:405px;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.15);margin:20px 0}
+  .cell{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:600;text-align:center;padding:10px;font-size:18px}
+  .cell .ico{font-size:40px;margin-bottom:6px}
+  .download-btn{background:#06C755;color:white;padding:12px 24px;border:0;border-radius:8px;font-size:15px;cursor:pointer;margin:10px 5px}
+</style>
+</head>
+<body>
+
+<h2>🎨 Rich Menu Preview</h2>
+<p>คลิก "ดาวน์โหลด" → ส่ง PNG ที่ได้ไป upload ใน LINE Admin</p>
+
+<h3>👤 Tenant Menu (เมนูลูกบ้าน)</h3>
+<div id="tenantMenu" class="menu">
+  <div class="cell" style="background:#06C755"><div class="ico">📋</div>ดูบิล</div>
+  <div class="cell" style="background:#10b981"><div class="ico">💳</div>ชำระเงิน</div>
+  <div class="cell" style="background:#f59e0b"><div class="ico">🔧</div>แจ้งซ่อม</div>
+  <div class="cell" style="background:#3b82f6"><div class="ico">🏠</div>ห้องของฉัน</div>
+  <div class="cell" style="background:#8b5cf6"><div class="ico">📜</div>ประวัติบิล</div>
+  <div class="cell" style="background:#6b7280"><div class="ico">❓</div>ช่วยเหลือ</div>
+</div>
+<button class="download-btn" onclick="dl('tenantMenu','tenant.png')">⬇️ ดาวน์โหลดเป็น PNG</button>
+
+<h3>👑 Owner Menu (เมนูเจ้าของหอ)</h3>
+<div id="ownerMenu" class="menu">
+  <div class="cell" style="background:#06C755"><div class="ico">📊</div>สรุปวันนี้</div>
+  <div class="cell" style="background:#3b82f6"><div class="ico">🏠</div>ห้องว่าง</div>
+  <div class="cell" style="background:#ef4444"><div class="ico">⚠️</div>ค้างชำระ</div>
+  <div class="cell" style="background:#f59e0b"><div class="ico">📄</div>สลิปรอตรวจ</div>
+  <div class="cell" style="background:#8b5cf6"><div class="ico">📢</div>ประกาศ</div>
+  <div class="cell" style="background:#6b7280"><div class="ico">⚙️</div>เปิดเว็บ</div>
+</div>
+<button class="download-btn" onclick="dl('ownerMenu','owner.png')">⬇️ ดาวน์โหลดเป็น PNG</button>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+async function dl(id, filename) {
+  const el = document.getElementById(id);
+  const c = await html2canvas(el, {scale: 2500/600});
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+</script>
+</body>
+</html>

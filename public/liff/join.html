@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ลงทะเบียนห้องพัก</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{colors:{line:'#06C755','line-dark':'#059142'},fontFamily:{sans:['Prompt','sans-serif']}}}}</script>
+<style>body{font-family:'Prompt',sans-serif;background:#f8fafc}</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- Loading -->
+<div id="loadingState" class="flex-1 flex flex-col items-center justify-center p-8">
+  <div class="w-12 h-12 border-4 border-line border-t-transparent rounded-full animate-spin mb-4"></div>
+  <p class="text-gray-500 text-sm">กำลังโหลด...</p>
+</div>
+
+<!-- Error -->
+<div id="errorState" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center">
+  <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
+    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  </div>
+  <h2 class="text-lg font-bold text-gray-900 mb-2">ลิงก์ไม่สามารถใช้งานได้</h2>
+  <p id="errorMsg" class="text-gray-500 text-sm mb-6"></p>
+  <p class="text-gray-400 text-xs">กรุณาติดต่อแอดมินเพื่อขอลิงก์ใหม่</p>
+</div>
+
+<!-- Room Info + Register -->
+<div id="registerState" class="hidden flex-1 flex flex-col">
+  <!-- Header -->
+  <div class="bg-line text-white p-6 pt-safe">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      </div>
+      <div>
+        <p class="text-white/70 text-sm">ยินดีต้อนรับสู่</p>
+        <h1 class="text-xl font-bold" id="dormTitle">หอพัก</h1>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Card -->
+  <div class="p-5">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+      <p class="text-gray-500 text-sm mb-1">ห้องที่ได้รับการกำหนด</p>
+      <h2 class="text-3xl font-bold text-gray-900 mb-1">ห้อง <span id="roomNumber">-</span></h2>
+      <p class="text-gray-500 text-sm">ค่าเช่า <span class="font-semibold text-gray-900" id="monthlyRent">-</span> บาท/เดือน</p>
+      <div class="mt-3 flex items-center gap-2">
+        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+        <p class="text-xs text-gray-400">ลิงก์ใช้ได้ถึง <span id="expiresAt"></span></p>
+      </div>
+    </div>
+
+    <!-- Profile Preview -->
+    <div id="profileCard" class="hidden bg-green-50 border border-green-100 rounded-2xl p-4 mb-5 flex items-center gap-3">
+      <img id="profilePic" src="" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm">
+      <div>
+        <p class="text-xs text-green-600 font-medium">LINE Account ที่จะผูก</p>
+        <p class="font-semibold text-gray-900" id="profileName"></p>
+      </div>
+    </div>
+
+    <!-- Phone (optional) -->
+    <div class="mb-5">
+      <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+      <input type="tel" id="phoneInput" placeholder="081xxxxxxx" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-line/30 focus:border-line">
+    </div>
+
+    <button id="registerBtn" class="w-full bg-line text-white py-4 rounded-2xl text-base font-bold hover:bg-line-dark transition shadow-lg shadow-line/30 flex items-center justify-center gap-2">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      ยืนยันและลงทะเบียนห้อง
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-3">ลิงก์นี้ใช้ได้เพียงครั้งเดียว</p>
+  </div>
+</div>
+
+<!-- Success -->
+<div id="successState" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center">
+  <div class="w-20 h-20 bg-line rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-line/30">
+    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+  </div>
+  <h2 class="text-2xl font-bold text-gray-900 mb-2">ลงทะเบียนสำเร็จ!</h2>
+  <p class="text-gray-500 mb-1">ห้อง <span id="successRoom" class="font-bold text-gray-900"></span></p>
+  <p class="text-gray-500 text-sm mb-8">คุณได้ผูก LINE กับห้องพักเรียบร้อยแล้ว</p>
+  <button onclick="liff.closeWindow()" class="bg-line text-white px-8 py-3 rounded-2xl font-semibold hover:bg-line-dark transition">ปิดหน้านี้</button>
+</div>
+
+<script>
+const token = location.pathname.split('/join/')[1];
+let liffProfile = null;
+let inviteData = null;
+let liffId = null;
+
+async function init() {
+  if (!token) { showError('ไม่พบ Invite Token'); return; }
+
+  // ดึงข้อมูลห้องจาก token ก่อน (เพื่อรู้ dormitory liff_id)
+  try {
+    const r = await fetch(`/api/tenant/invite/${token}`);
+    const data = await r.json();
+    if (!r.ok) { showError(data.error); return; }
+    inviteData = data;
+  } catch { showError('ไม่สามารถโหลดข้อมูลได้'); return; }
+
+  // Init LIFF
+  try {
+    // ถ้ามี liff_id ใน query param ให้ใช้ตัวนั้น
+    const params = new URLSearchParams(location.search);
+    liffId = params.get('liff_id') || inviteData.liff_id || 'YOUR_LIFF_ID';
+    await liff.init({ liffId });
+
+    if (!liff.isLoggedIn()) {
+      liff.login({ redirectUri: location.href });
+      return;
+    }
+
+    liffProfile = await liff.getProfile();
+  } catch(err) {
+    // fallback: ถ้าไม่ได้อยู่ใน LINE เปิด browser ธรรมดา
+    console.warn('LIFF init failed, running in browser mode:', err.message);
+  }
+
+  showRegisterState();
+}
+
+function showRegisterState() {
+  hide('loadingState');
+  show('registerState');
+
+  document.getElementById('dormTitle').textContent = inviteData.dormitory_name;
+  document.getElementById('roomNumber').textContent = inviteData.room_number;
+  document.getElementById('monthlyRent').textContent = Number(inviteData.monthly_rent).toLocaleString('th-TH');
+  document.getElementById('expiresAt').textContent = new Date(inviteData.expires_at).toLocaleDateString('th-TH');
+
+  if (liffProfile) {
+    document.getElementById('profilePic').src = liffProfile.pictureUrl || '';
+    document.getElementById('profileName').textContent = liffProfile.displayName;
+    show('profileCard');
+  }
+
+  document.getElementById('registerBtn').addEventListener('click', doRegister);
+}
+
+async function doRegister() {
+  const btn = document.getElementById('registerBtn');
+  btn.disabled = true;
+  btn.textContent = 'กำลังลงทะเบียน...';
+
+  // ถ้า LIFF ใช้งานได้ ดึง access token; ถ้าไม่ได้ใช้ userId จาก profile
+  let lineUserId = liffProfile?.userId;
+  let displayName = liffProfile?.displayName;
+  let pictureUrl = liffProfile?.pictureUrl;
+
+  if (!lineUserId) {
+    showError('ไม่สามารถดึงข้อมูล LINE Account ได้ กรุณาเปิดลิงก์นี้ผ่าน LINE');
+    return;
+  }
+
+  const phone = document.getElementById('phoneInput').value.trim();
+
+  try {
+    const r = await fetch(`/line/join/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lineUserId, displayName, pictureUrl, phone })
+    });
+    const data = await r.json();
+    if (!r.ok) { showError(data.error); return; }
+
+    hide('registerState');
+    document.getElementById('successRoom').textContent = data.room_number;
+    show('successState');
+  } catch(err) {
+    showError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    btn.disabled = false;
+    btn.textContent = 'ยืนยันและลงทะเบียนห้อง';
+  }
+}
+
+function showError(msg) {
+  hide('loadingState'); hide('registerState');
+  document.getElementById('errorMsg').textContent = msg;
+  show('errorState');
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+init();
+</script>
+</body>
+</html>

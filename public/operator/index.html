@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMS Operator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{colors:{line:'#06C755','line-dark':'#059142'},fontFamily:{sans:['Prompt','sans-serif']}}}}</script>
+<style>
+  body{font-family:'Prompt',sans-serif;background:#f8fafc;font-size:17px}
+  .page{display:none}.page.active{display:block}
+  .room-card{transition:all .15s ease;cursor:pointer}
+  .room-card:hover{transform:translateY(-2px);box-shadow:0 10px 25px rgba(0,0,0,.1)}
+  .pulse-dot::before{content:'';position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Senior-friendly: bigger inputs, larger touch targets */
+  .ipt{width:100%;border:2px solid #e5e7eb;border-radius:14px;padding:14px 18px;font-size:18px;outline:none;font-family:'Prompt',sans-serif;background:#fff}
+  .ipt:focus{border-color:#06C755;box-shadow:0 0 0 4px rgba(6,199,85,.15)}
+  .lbl{display:block;font-size:15px;font-weight:600;color:#374151;margin-bottom:6px}
+  .step-dot{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+  .step-dot.done{background:#06C755;color:#fff}
+  .step-dot.active{background:#06C755;color:#fff;box-shadow:0 0 0 4px rgba(6,199,85,.25)}
+  .step-dot.todo{background:#e5e7eb;color:#9ca3af}
+  .step-line{flex:1;height:3px;background:#e5e7eb;margin:0 8px;border-radius:2px}
+  .step-line.done{background:#06C755}
+  .preset-btn{padding:14px 20px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;font-weight:600;font-size:16px;cursor:pointer;transition:all .15s}
+  .preset-btn:hover{border-color:#06C755}
+  .preset-btn.selected{border-color:#06C755;background:#06C75510;color:#06C755}
+  .big-btn{padding:16px 28px;border-radius:14px;font-weight:700;font-size:17px;border:none;cursor:pointer;transition:all .15s}
+  .big-btn-primary{background:#06C755;color:#fff}
+  .big-btn-primary:hover{background:#059142}
+  .big-btn-secondary{background:#fff;border:2px solid #e5e7eb;color:#374151}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<!-- LOGIN -->
+<div id="loginPage" class="fixed inset-0 bg-gradient-to-br from-line to-emerald-700 flex items-center justify-center z-50">
+  <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-8">
+      <div class="w-20 h-20 bg-gradient-to-br from-line to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg"><i class="ph-fill ph-buildings text-white text-4xl"></i></div>
+      <h1 class="text-2xl font-bold text-gray-900">RMS Operator</h1>
+      <p class="text-gray-500 text-sm mt-1">ระบบดูสถานะห้องพัก</p>
+    </div>
+    <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm"></div>
+    <form id="loginForm" class="space-y-4">
+      <input type="email" id="loginEmail" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-line/30" placeholder="Email">
+      <input type="password" id="loginPassword" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-line/30" placeholder="Password">
+      <button type="submit" class="w-full bg-line text-white py-3 rounded-xl font-bold hover:bg-line-dark transition">เข้าสู่ระบบ</button>
+    </form>
+    <div class="mt-6 pt-6 border-t border-gray-100 text-center">
+      <a href="/admin" class="text-xs text-gray-400 hover:text-line">→ ไปหน้า Admin (ตั้งค่าระบบ)</a>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP REQUIRED -->
+<div id="setupRequired" class="hidden fixed inset-0 bg-white z-40 flex items-center justify-center p-6">
+  <div class="text-center max-w-md">
+    <div class="w-20 h-20 bg-orange-100 rounded-3xl flex items-center justify-center mx-auto mb-5"><i class="ph ph-warning text-orange-500 text-4xl"></i></div>
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">ระบบยังตั้งค่าไม่ครบ</h2>
+    <p class="text-gray-500 mb-1">เพื่อใช้งาน Operator Mode ต้องตั้งค่าระบบให้เสร็จก่อน</p>
+    <p class="text-gray-400 text-sm mb-6" id="setupProgress"></p>
+    <a href="/admin/#setup" class="inline-block bg-line text-white px-6 py-3 rounded-xl font-bold">ไปตั้งค่า Setup Wizard →</a>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="mainApp" class="hidden">
+  <!-- HEADER -->
+  <div class="bg-gradient-to-r from-line to-emerald-700 text-white px-6 py-5 sticky top-0 z-30 shadow-lg">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <button id="backBtn" onclick="backToBuildings()" class="hidden p-2 rounded-lg hover:bg-white/10"><i class="ph ph-arrow-left text-2xl"></i></button>
+        <div>
+          <p class="text-xs opacity-80" id="dormName">หอพัก</p>
+          <h1 class="text-xl font-bold" id="pageTitle">เลือกอาคาร</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="refreshAll()" class="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20" title="รีเฟรชข้อมูล"><i class="ph ph-arrows-clockwise" id="refreshIcon"></i> <span id="lastSync"></span></button>
+        <a href="/admin" class="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20"><i class="ph ph-gear"></i> Admin</a>
+        <button onclick="logout()" class="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20"><i class="ph ph-sign-out"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="bg-white border-b border-gray-100 px-6 py-4">
+    <div class="max-w-6xl mx-auto flex flex-wrap gap-5 text-base" id="statusLegend"></div>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div class="bg-white border-b border-gray-100 px-6 py-4" id="quickActionsBar">
+    <div class="max-w-6xl mx-auto flex flex-wrap gap-3" id="quickActionsList"></div>
+  </div>
+
+  <!-- BUILDINGS PAGE -->
+  <div id="buildingsPage" class="page active max-w-6xl mx-auto p-6">
+
+    <!-- Monthly Calendar Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6" id="upcomingCard">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-gray-800 flex items-center gap-2"><i class="ph ph-calendar-check text-line text-xl"></i> ปฏิทินกิจกรรม</h3>
+        <div class="flex items-center gap-2">
+          <button onclick="opCalNav(-1)" class="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-600"><i class="ph ph-caret-left"></i></button>
+          <span id="opCalLabel" class="text-sm font-semibold text-gray-700 min-w-[110px] text-center">—</span>
+          <button onclick="opCalNav(1)" class="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-600"><i class="ph ph-caret-right"></i></button>
+          <button onclick="opCalToday()" class="ml-1 text-xs bg-line/10 hover:bg-line/20 text-line px-2.5 py-1.5 rounded-lg font-semibold">วันนี้</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 mb-3">
+        <span><span class="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block align-middle mr-1"></span>แจ้งซ่อม</span>
+        <span><span class="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block align-middle mr-1"></span>กำหนดชำระ</span>
+        <span><span class="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block align-middle mr-1"></span>สัญญา</span>
+        <span><span class="w-2.5 h-2.5 rounded-full bg-gray-300 inline-block align-middle mr-1"></span>ทั่วไป</span>
+      </div>
+      <!-- Weekday header -->
+      <div class="grid grid-cols-7 gap-1 mb-1 text-center text-xs font-semibold text-gray-400">
+        <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+      </div>
+      <!-- Monthly grid -->
+      <div class="grid grid-cols-7 gap-1" id="opCalGrid"></div>
+      <!-- Event list for selected day -->
+      <div id="miniCalEvents" class="space-y-2 mt-4 min-h-[40px]">
+        <p class="text-xs text-gray-400 text-center py-2">แตะวันเพื่อดูกิจกรรม</p>
+      </div>
+    </div>
+
+    <div id="buildingsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+  </div>
+
+  <!-- ROOMS PAGE -->
+  <div id="roomsPage" class="page max-w-6xl mx-auto p-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-5">
+      <div class="flex flex-wrap items-center gap-3 justify-between">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm text-gray-500">กรองสถานะ:</span>
+          <button onclick="filterByStatus('')" id="fs-all" class="text-xs px-3 py-1.5 rounded-full bg-line text-white">ทั้งหมด</button>
+          <span id="filterButtons"></span>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-gray-500">แสดงต่อหน้า:</span>
+          <select id="perPage" onchange="loadRooms()" class="border border-gray-200 rounded-lg px-3 py-1.5">
+            <option>10</option><option>20</option><option selected>30</option><option>50</option><option>100</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="roomsGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"></div>
+    <div id="pagination" class="flex justify-center items-center gap-2 mt-6"></div>
+  </div>
+</div>
+
+<!-- ROOM DETAIL SHEET -->
+<div id="roomSheet" class="fixed inset-0 bg-black/50 z-50 hidden items-end md:items-center justify-center p-4">
+  <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="p-5 border-b border-gray-100 flex-shrink-0">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3 md:hidden"></div>
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900" id="rsCode">A101</h2>
+          <p class="text-sm text-gray-500" id="rsBuilding">ตึก A • ชั้น 1</p>
+        </div>
+        <button onclick="closeRoomSheet()" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button>
+      </div>
+    </div>
+    <div class="overflow-y-auto p-5 space-y-4 flex-1">
+      <div id="rsStatusCard" class="rounded-2xl p-5 text-center"></div>
+
+      <div class="grid grid-cols-2 gap-3" id="rsInfoGrid"></div>
+
+      <div>
+        <h3 class="font-bold text-gray-700 mb-2 text-sm">เปลี่ยนสถานะ</h3>
+        <div class="grid grid-cols-2 gap-2" id="rsStatusButtons"></div>
+      </div>
+
+      <div id="rsBillSection" class="hidden">
+        <h3 class="font-bold text-gray-700 mb-2 text-sm">บิลล่าสุด</h3>
+        <div id="rsBill" class="bg-gray-50 rounded-xl p-4"></div>
+      </div>
+
+      <div>
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="font-bold text-gray-700 text-sm">🔧 แจ้งซ่อม</h3>
+          <button onclick="openCreateMaint()" class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1.5 rounded-lg font-semibold">+ รับแจ้งซ่อมใหม่</button>
+        </div>
+        <div id="rsMaint" class="space-y-2"></div>
+      </div>
+
+      <div id="rsLogSection" class="hidden">
+        <h3 class="font-bold text-gray-700 mb-2 text-sm">ประวัติเปลี่ยนสถานะ</h3>
+        <div id="rsLog" class="space-y-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ONBOARD TENANT WIZARD (4 steps, senior-friendly)              -->
+<!-- ============================================================ -->
+<div id="onboardSheet" class="fixed inset-0 bg-black/60 z-50 hidden items-end md:items-center justify-center p-0 md:p-4">
+  <div class="bg-white w-full max-w-3xl rounded-t-3xl md:rounded-3xl max-h-[100vh] md:max-h-[92vh] flex flex-col shadow-2xl">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-line to-emerald-700 text-white p-6 rounded-t-3xl flex justify-between items-center flex-shrink-0">
+      <div>
+        <p class="text-sm opacity-80">เพิ่มผู้เช่าใหม่</p>
+        <h2 class="text-2xl font-bold mt-1" id="obRoomLabel">ห้อง A101</h2>
+      </div>
+      <button onclick="closeOnboard()" class="bg-white/20 hover:bg-white/30 p-3 rounded-full">
+        <i class="ph ph-x text-2xl"></i>
+      </button>
+    </div>
+
+    <!-- Step indicator -->
+    <div class="px-6 py-5 border-b flex-shrink-0">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center w-full">
+          <div class="step-dot active" id="dot-1">1</div><div class="step-line" id="line-1"></div>
+          <div class="step-dot todo" id="dot-2">2</div><div class="step-line" id="line-2"></div>
+          <div class="step-dot todo" id="dot-3">3</div><div class="step-line" id="line-3"></div>
+          <div class="step-dot todo" id="dot-4">4</div><div class="step-line" id="line-4"></div>
+          <div class="step-dot todo" id="dot-5">5</div>
+        </div>
+      </div>
+      <p class="text-center mt-3 font-semibold text-gray-700" id="stepTitle">ขั้นที่ 1: ข้อมูลผู้เช่า</p>
+    </div>
+
+    <!-- Steps content -->
+    <div class="overflow-y-auto p-6 flex-1">
+
+      <!-- STEP 1: TENANT INFO -->
+      <div id="step-1" class="ob-step">
+        <div class="bg-blue-50 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+          <i class="ph-fill ph-info text-blue-600 text-2xl flex-shrink-0"></i>
+          <p class="text-sm text-gray-700">กรอกข้อมูลผู้เช่าเพื่อทำสัญญา • เครื่องหมาย <span class="text-red-500 font-bold">*</span> คือต้องกรอก</p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="lbl">👤 ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+            <input id="ob_name" class="ipt" placeholder="เช่น สมชาย ใจดี" required>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="lbl">📞 เบอร์โทร</label>
+              <input id="ob_phone" class="ipt" placeholder="081-234-5678">
+            </div>
+            <div>
+              <label class="lbl">🆔 เลขบัตรประชาชน</label>
+              <input id="ob_id_card" class="ipt" placeholder="1-1234-56789-01-2" maxlength="17">
+            </div>
+          </div>
+          <div>
+            <label class="lbl">🏠 ที่อยู่ตามทะเบียนบ้าน</label>
+            <textarea id="ob_address" class="ipt" rows="2" placeholder="123 ม.5 ต.บางขุนเทียน อ.บางขุนเทียน กทม. 10150"></textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="lbl">💼 อาชีพ</label>
+              <input id="ob_occupation" class="ipt" placeholder="เช่น พนักงานบริษัท">
+            </div>
+            <div>
+              <label class="lbl">🏢 สถานที่ทำงาน / ศึกษา</label>
+              <input id="ob_workplace" class="ipt" placeholder="เช่น บริษัท ABC จำกัด">
+            </div>
+          </div>
+
+          <details class="bg-gray-50 rounded-2xl p-4">
+            <summary class="font-semibold text-gray-700 cursor-pointer">📞 บุคคลติดต่อฉุกเฉิน (ไม่บังคับ)</summary>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <input id="ob_emerg_name" class="ipt" placeholder="ชื่อ">
+              <input id="ob_emerg_phone" class="ipt" placeholder="เบอร์">
+              <input id="ob_emerg_relation" class="ipt" placeholder="ความสัมพันธ์ (เช่น แม่)">
+            </div>
+          </details>
+
+          <details class="bg-gray-50 rounded-2xl p-4">
+            <summary class="font-semibold text-gray-700 cursor-pointer">🤝 ผู้ค้ำประกัน (ไม่บังคับ)</summary>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <input id="ob_guar_name" class="ipt" placeholder="ชื่อผู้ค้ำ">
+              <input id="ob_guar_phone" class="ipt" placeholder="เบอร์">
+              <input id="ob_guar_id_card" class="ipt" placeholder="เลขบัตรประชาชน">
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- STEP 2: CONTRACT -->
+      <div id="step-2" class="ob-step hidden">
+        <div class="bg-purple-50 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+          <i class="ph-fill ph-file-text text-purple-600 text-2xl flex-shrink-0"></i>
+          <p class="text-sm text-gray-700">เลือกระยะเวลาสัญญา ระบบจะคำนวณวันสิ้นสุดให้อัตโนมัติ — ปรับได้ภายหลัง</p>
+        </div>
+
+        <div class="space-y-5">
+          <div>
+            <label class="lbl">📅 วันที่เริ่มสัญญา / เข้าอยู่ <span class="text-red-500">*</span></label>
+            <input id="ob_start" type="date" class="ipt">
+          </div>
+
+          <div>
+            <label class="lbl">⏱ ระยะเวลาสัญญา <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="contractPresets"></div>
+            <input id="ob_months_custom" type="number" min="1" max="120" placeholder="หรือกรอกจำนวนเดือนเอง" class="ipt mt-3 hidden">
+          </div>
+
+          <div>
+            <label class="lbl">📆 วันสิ้นสุดสัญญา (คำนวณอัตโนมัติ — แก้ได้)</label>
+            <input id="ob_end" type="date" class="ipt">
+            <p class="text-xs text-gray-500 mt-1" id="endHint"></p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="lbl">💰 ค่าเช่ารายเดือน (฿) <span class="text-red-500">*</span></label>
+              <input id="ob_rent" type="number" class="ipt" required>
+            </div>
+            <div>
+              <label class="lbl">📅 ชำระค่าเช่าทุกวันที่</label>
+              <input id="ob_due_day" type="number" min="1" max="31" class="ipt" value="5">
+            </div>
+          </div>
+
+          <div>
+            <label class="lbl">📝 เงื่อนไขเพิ่มเติม (ไม่บังคับ)</label>
+            <textarea id="ob_terms" class="ipt" rows="2" placeholder="เช่น ห้ามเลี้ยงสัตว์, ห้ามสูบบุหรี่"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: DEPOSITS -->
+      <div id="step-3" class="ob-step hidden">
+        <div class="bg-green-50 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+          <i class="ph-fill ph-coin text-green-600 text-2xl flex-shrink-0"></i>
+          <p class="text-sm text-gray-700">เลือกรายการมัดจำที่ต้องเก็บ • เปิด/ปิด/ปรับจำนวนได้ • ค่ามัดจำจะคืนเมื่อย้ายออก</p>
+        </div>
+        <div id="depositsList" class="space-y-3"></div>
+
+        <div class="bg-gradient-to-r from-line/10 to-emerald-50 rounded-2xl p-5 mt-6 flex justify-between items-center">
+          <div>
+            <p class="text-sm text-gray-500">รวมเงินมัดจำที่ต้องเก็บ</p>
+            <p class="text-3xl font-bold text-line" id="totalDeposit">฿0</p>
+          </div>
+          <i class="ph-fill ph-piggy-bank text-line text-5xl opacity-50"></i>
+        </div>
+      </div>
+
+      <!-- STEP 4: DOCUMENTS & PAYMENT INFO -->
+      <div id="step-4" class="ob-step hidden">
+        <div class="bg-indigo-50 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+          <i class="ph-fill ph-file-arrow-up text-indigo-600 text-2xl flex-shrink-0"></i>
+          <p class="text-sm text-gray-700">แนบเอกสารประกอบ (ไม่บังคับ) และดูข้อมูลบัญชีสำหรับโอนเงินมัดจำ</p>
+        </div>
+
+        <div class="space-y-5">
+          <!-- Dormitory payment info display -->
+          <div class="bg-gradient-to-br from-line/5 to-emerald-50 border-2 border-line/20 rounded-2xl p-5" id="obPaymentInfo">
+            <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i class="ph ph-bank text-line"></i> ข้อมูลบัญชีรับเงิน</h4>
+            <div id="obPaymentDetails" class="text-sm text-gray-500 italic">กำลังโหลด...</div>
+          </div>
+
+          <!-- Upload ID card copy -->
+          <div>
+            <label class="lbl">📋 สำเนาบัตรประชาชน (ไม่บังคับ)</label>
+            <div class="border-2 border-dashed border-gray-200 rounded-2xl p-5 text-center hover:border-line transition cursor-pointer" onclick="document.getElementById('obIdCardFile').click()">
+              <i class="ph ph-identification-card text-gray-400 text-4xl"></i>
+              <p class="text-sm text-gray-500 mt-2">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวาง</p>
+              <p class="text-xs text-gray-400 mt-1">รองรับ JPG, PNG, PDF ขนาดไม่เกิน 5MB</p>
+              <input type="file" id="obIdCardFile" class="hidden" accept="image/*,.pdf" onchange="obFileSelected(this,'obIdCardLabel','id_card_file')">
+              <p id="obIdCardLabel" class="text-xs text-line mt-2 font-medium"></p>
+            </div>
+          </div>
+
+          <!-- Upload room photos -->
+          <div>
+            <label class="lbl">📷 รูปห้องพัก (ไม่บังคับ)</label>
+            <div class="border-2 border-dashed border-gray-200 rounded-2xl p-5 text-center hover:border-line transition cursor-pointer" onclick="document.getElementById('obRoomPhotos').click()">
+              <i class="ph ph-images text-gray-400 text-4xl"></i>
+              <p class="text-sm text-gray-500 mt-2">คลิกเพื่อเลือกรูป (เลือกได้หลายรูป)</p>
+              <p class="text-xs text-gray-400 mt-1">รองรับ JPG, PNG</p>
+              <input type="file" id="obRoomPhotos" class="hidden" accept="image/*" multiple onchange="obFileSelected(this,'obRoomPhotoLabel','room_photos')">
+              <p id="obRoomPhotoLabel" class="text-xs text-line mt-2 font-medium"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 5: REVIEW -->
+      <div id="step-5" class="ob-step hidden">
+        <div class="bg-yellow-50 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+          <i class="ph-fill ph-check-circle text-yellow-600 text-2xl flex-shrink-0"></i>
+          <p class="text-sm text-gray-700">ตรวจสอบข้อมูลให้ถูกต้อง — กดยืนยันเพื่อทำสัญญา + บันทึกข้อมูล</p>
+        </div>
+        <div id="reviewContent" class="space-y-4"></div>
+      </div>
+
+    </div>
+
+    <!-- Footer buttons -->
+    <div class="border-t p-5 flex gap-3 flex-shrink-0 bg-gray-50">
+      <button id="obBack" onclick="prevStep()" class="big-btn big-btn-secondary flex-1">
+        <i class="ph ph-arrow-left"></i> ย้อนกลับ
+      </button>
+      <button id="obNext" onclick="nextStep()" class="big-btn big-btn-primary flex-[2]">
+        ถัดไป <i class="ph ph-arrow-right"></i>
+      </button>
+      <button id="obSubmit" onclick="submitOnboard()" class="big-btn big-btn-primary flex-[2] hidden">
+        <i class="ph ph-check"></i> ยืนยันและบันทึก
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BILLS SHEET -->
+<div id="billsSheet" class="fixed inset-0 bg-black/50 z-50 hidden items-end md:items-center justify-center p-4">
+  <div class="bg-white w-full max-w-2xl rounded-t-3xl md:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="p-5 border-b flex justify-between items-center"><h2 class="text-xl font-bold">📋 บิลค่าเช่า</h2><button onclick="closeOpSheet('billsSheet')" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button></div>
+    <div class="overflow-y-auto p-5" id="billsContent"></div>
+  </div>
+</div>
+
+<!-- PAYMENTS SHEET -->
+<div id="paymentsSheet" class="fixed inset-0 bg-black/50 z-50 hidden items-end md:items-center justify-center p-4">
+  <div class="bg-white w-full max-w-2xl rounded-t-3xl md:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="p-5 border-b flex justify-between items-center"><h2 class="text-xl font-bold">💸 สลิปรอตรวจ</h2><button onclick="closeOpSheet('paymentsSheet')" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button></div>
+    <div class="overflow-y-auto p-5" id="paymentsContent"></div>
+  </div>
+</div>
+
+<!-- MAINT SHEET -->
+<div id="maintSheet" class="fixed inset-0 bg-black/50 z-50 hidden items-end md:items-center justify-center p-4">
+  <div class="bg-white w-full max-w-2xl rounded-t-3xl md:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="p-5 border-b flex justify-between items-center"><h2 class="text-xl font-bold">🔧 แจ้งซ่อม</h2><button onclick="closeOpSheet('maintSheet')" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button></div>
+    <div class="overflow-y-auto p-5" id="maintContent"></div>
+  </div>
+</div>
+
+<!-- PRORATE SHEET -->
+<div id="prorateSheet" class="fixed inset-0 bg-black/50 z-50 hidden items-end md:items-center justify-center p-4">
+  <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="p-5 border-b flex justify-between items-center"><h2 class="text-xl font-bold">🧮 คิดค่าเช่าเดือนแรก</h2><button onclick="closeOpSheet('prorateSheet')" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button></div>
+    <div class="p-5 overflow-y-auto">
+      <form id="opProrateForm" class="space-y-3">
+        <div><label class="text-xs text-gray-500">ค่าเช่ารายเดือน</label><input name="monthly_rent" type="number" required class="w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="3500"></div>
+        <div><label class="text-xs text-gray-500">วันที่เข้าอยู่</label><input name="move_in_date" type="date" required class="w-full border border-gray-200 rounded-xl px-4 py-3"></div>
+        <div><label class="text-xs text-gray-500">วันครบกำหนดของเดือน</label><input name="due_day" type="number" min="1" max="31" value="5" class="w-full border border-gray-200 rounded-xl px-4 py-3"></div>
+        <button type="submit" class="w-full bg-line text-white py-3 rounded-xl font-bold">คำนวณ</button>
+      </form>
+      <div id="opProrateResult" class="mt-5"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE LINK MODAL (after onboarding) -->
+<div id="shareLinkModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div class="bg-gradient-to-br from-line to-emerald-700 text-white p-6 text-center">
+      <i class="ph-fill ph-check-circle text-5xl"></i>
+      <h3 class="font-bold text-xl mt-2">เพิ่มผู้เช่าสำเร็จ!</h3>
+      <p class="text-sm opacity-90 mt-1" id="shareContractLabel">สัญญา —</p>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4">
+        <p class="text-xs font-semibold text-emerald-700 mb-2 flex items-center gap-1">
+          <i class="ph ph-link"></i> ลิงก์สำหรับผู้เช่า
+        </p>
+        <p class="text-xs text-gray-600 mb-2">ส่งลิงก์นี้ให้ผู้เช่าเพื่อดูรายละเอียดห้อง สัญญา และวิธีโอนเงิน</p>
+        <div class="bg-white rounded-xl p-2 flex items-center gap-2">
+          <input id="shareLinkInput" readonly class="flex-1 text-xs px-2 py-1 bg-transparent outline-none truncate" value="">
+          <button onclick="copyShareLink()" id="copyShareBtn" class="bg-line hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-semibold flex-shrink-0">
+            <i class="ph ph-copy"></i> คัดลอก
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <a id="shareLineBtn" target="_blank" class="bg-line/10 hover:bg-line/20 text-line text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5">
+          <i class="ph-fill ph-chat-circle-text"></i> ส่ง LINE
+        </a>
+        <a id="shareSmsBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-600 text-sm font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5">
+          <i class="ph-fill ph-device-mobile"></i> ส่ง SMS
+        </a>
+      </div>
+      <button onclick="closeShareLinkModal()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl">เสร็จสิ้น</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE-OUT NOTICE MODAL -->
+<div id="moveOutModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <h3 class="font-bold text-lg mb-1 flex items-center gap-2">🚪 แจ้งออก</h3>
+    <p class="text-sm text-gray-500 mb-4" id="moveOutRoomLabel">ห้อง A101</p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่ย้ายออก <span class="text-red-500">*</span></label>
+        <input type="date" id="moveOutDate" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-line/30">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ (ไม่บังคับ)</label>
+        <textarea id="moveOutNote" rows="2" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-line/30" placeholder="เหตุผลหรือรายละเอียดเพิ่มเติม"></textarea>
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="document.getElementById('moveOutModal').style.display='none'" class="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm">ยกเลิก</button>
+      <button onclick="submitMoveOut()" class="flex-1 bg-red-500 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-red-600">ยืนยันแจ้งออก</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTRACT RENEWAL MODAL -->
+<div id="renewModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <h3 class="font-bold text-lg mb-1 flex items-center gap-2">📋 ต่อสัญญา</h3>
+    <p class="text-sm text-gray-500 mb-4" id="renewRoomLabel">ห้อง A101</p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ต่อเพิ่มอีก (เดือน) <span class="text-red-500">*</span></label>
+        <div class="grid grid-cols-4 gap-2 mb-2">
+          <button onclick="setRenewMonths(6)" data-m="6" class="renew-m-btn py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold hover:border-line transition">6</button>
+          <button onclick="setRenewMonths(12)" data-m="12" class="renew-m-btn py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold hover:border-line transition">12</button>
+          <button onclick="setRenewMonths(24)" data-m="24" class="renew-m-btn py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold hover:border-line transition">24</button>
+          <button onclick="setRenewMonths(36)" data-m="36" class="renew-m-btn py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold hover:border-line transition">36</button>
+        </div>
+        <input type="number" id="renewMonths" min="1" max="120" placeholder="หรือกรอกจำนวนเดือน" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ค่าเช่าใหม่ (฿/เดือน) — ปล่อยว่าง = คงเดิม</label>
+        <input type="number" id="renewRent" placeholder="เช่น 3500" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button onclick="document.getElementById('renewModal').style.display='none'" class="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm">ยกเลิก</button>
+      <button onclick="submitRenew()" class="flex-1 bg-line text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-line-dark">ยืนยันต่อสัญญา</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS NOTE MODAL -->
+<div id="noteModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <h3 class="font-bold mb-3" id="noteTitle">เปลี่ยนสถานะ</h3>
+    <textarea id="noteText" class="w-full border border-gray-200 rounded-xl p-3 text-sm h-24" placeholder="หมายเหตุ (ไม่บังคับ)"></textarea>
+    <div class="flex gap-2 mt-4">
+      <button onclick="closeModal('noteModal')" class="flex-1 border border-gray-200 py-2.5 rounded-xl">ยกเลิก</button>
+      <button onclick="confirmStatusChange()" class="flex-1 bg-line text-white py-2.5 rounded-xl font-semibold">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let dormName = '', currentBuilding = null, currentStatusFilter = '', currentPage = 1;
+let statusMeta = {}, currentRoomDetail = null, pendingStatus = null;
+let myPerms = {};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const ok = await checkAuth();
+  if (!ok) return;
+  await loadBuildings();
+  loadUpcomingTasks(); // load mini calendar (non-blocking)
+  // Auto-refresh every 30 seconds (only when on rooms page or buildings page)
+  setInterval(() => { if (document.hidden) return; refreshAll(true); }, 30000);
+});
+
+function updateSyncTime() {
+  const t = new Date();
+  const hh = String(t.getHours()).padStart(2,'0');
+  const mm = String(t.getMinutes()).padStart(2,'0');
+  document.getElementById('lastSync').textContent = `อัปเดต ${hh}:${mm}`;
+}
+
+async function refreshAll(silent = false) {
+  if (!silent) {
+    const icon = document.getElementById('refreshIcon');
+    icon.style.animation = 'spin 1s linear';
+    setTimeout(() => icon.style.animation = '', 1000);
+  }
+  if (document.getElementById('roomsPage').classList.contains('active') && currentBuilding) {
+    await loadRooms();
+  } else {
+    await loadBuildings();
+  }
+  updateSyncTime();
+}
+
+async function checkAuth() {
+  try {
+    const r = await fetch('/auth/me');
+    if (!r.ok) { showLogin(); return false; }
+    const d = await r.json();
+    dormName = d.admin.dormitory_name;
+    document.getElementById('dormName').textContent = dormName;
+
+    // Check setup state
+    const s = await fetch('/api/admin/setup-state').then(r=>r.json());
+    if (!s.can_use_operator) {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('setupRequired').classList.remove('hidden');
+      document.getElementById('setupProgress').textContent = `ความคืบหน้า ${s.completed_steps}/${s.total_steps} ขั้น`;
+      return false;
+    }
+
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').classList.remove('hidden');
+
+    // Load user-specific permissions
+    try {
+      myPerms = await fetch('/api/admin/operator-perms/me/active').then(r=>r.json());
+    } catch { myPerms = {}; }
+    renderQuickActions();
+
+    return true;
+  } catch { showLogin(); return false; }
+}
+
+function renderQuickActions() {
+  const actions = [];
+  if (myPerms.can_view_bills) actions.push({ label:'📋', text:'บิล', fn:'openBills()', color:'bg-blue-50 hover:bg-blue-100 text-blue-700' });
+  if (myPerms.can_approve_payments) actions.push({ label:'💸', text:'ตรวจสลิป', fn:'openPayments()', color:'bg-green-50 hover:bg-green-100 text-green-700' });
+  if (myPerms.can_handle_maintenance) actions.push({ label:'🔧', text:'แจ้งซ่อม', fn:'openMaint()', color:'bg-orange-50 hover:bg-orange-100 text-orange-700' });
+  actions.push({ label:'🧮', text:'คิดค่าเช่าเดือนแรก', fn:'openProrate()', color:'bg-purple-50 hover:bg-purple-100 text-purple-700' });
+  if (myPerms.can_send_reminders) actions.push({ label:'🔔', text:'ส่งเตือนค้างชำระ', fn:'sendOverdueReminders()', color:'bg-red-50 hover:bg-red-100 text-red-700' });
+
+  document.getElementById('quickActionsList').innerHTML = actions.map(a =>
+    `<button onclick="${a.fn}" class="${a.color} px-5 py-3 rounded-2xl font-bold text-base flex items-center gap-2 transition shadow-sm hover:shadow-md">
+      <span class="text-2xl">${a.label}</span><span>${a.text}</span>
+    </button>`
+  ).join('');
+}
+
+function showLogin() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('mainApp').classList.add('hidden');
+}
+
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  try {
+    const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password}) });
+    if (!r.ok) throw new Error((await r.json()).error || 'Login ไม่สำเร็จ');
+    location.reload();
+  } catch(err) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }
+});
+
+async function logout() {
+  await fetch('/auth/logout', { method:'POST' });
+  location.reload();
+}
+
+// ============================================================
+// BUILDINGS
+// ============================================================
+async function loadBuildings() {
+  const data = await fetch('/api/admin/operator/buildings').then(r=>r.json());
+  statusMeta = data.status_meta;
+  renderLegend();
+  updateSyncTime();
+
+  document.getElementById('pageTitle').textContent = 'เลือกอาคาร';
+  document.getElementById('backBtn').classList.add('hidden');
+  showPage('buildingsPage');
+
+  const grid = document.getElementById('buildingsGrid');
+  if (!data.buildings.length) {
+    grid.innerHTML = '<div class="col-span-3 bg-white rounded-2xl border p-12 text-center text-gray-400">ยังไม่มีอาคาร — เพิ่มห้องใน Admin → ห้องพัก</div>';
+    return;
+  }
+
+  grid.innerHTML = data.buildings.map(b => {
+    const occupancyPct = Math.round((b.occupied / b.total) * 100);
+    return `<div onclick="openBuilding('${b.building}')" class="bg-white rounded-3xl shadow-md hover:shadow-xl transition cursor-pointer border border-gray-100 overflow-hidden">
+      <div class="bg-gradient-to-br from-line to-emerald-600 p-6 text-white">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-xs opacity-80">อาคาร</p>
+            <h2 class="text-5xl font-extrabold leading-none mt-1">${b.building}</h2>
+            <p class="text-sm opacity-90 mt-2">ชั้น ${b.min_floor}–${b.max_floor}</p>
+          </div>
+          <i class="ph-fill ph-buildings text-6xl opacity-30"></i>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm text-gray-500">การเข้าพัก</span>
+          <span class="font-bold text-gray-900">${occupancyPct}% (${b.occupied}/${b.total})</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2 mb-4 overflow-hidden">
+          <div class="bg-line h-full" style="width:${occupancyPct}%"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="bg-gray-100 rounded-lg p-2"><p class="text-gray-500">ว่าง</p><p class="font-bold text-gray-700">${b.vacant}</p></div>
+          <div class="bg-orange-100 rounded-lg p-2"><p class="text-orange-600">แจ้งซ่อม</p><p class="font-bold text-orange-700">${b.maintenance}</p></div>
+          <div class="bg-yellow-100 rounded-lg p-2"><p class="text-yellow-700">อื่นๆ</p><p class="font-bold text-yellow-800">${b.lost_key + b.needs_cleaning + b.reserved}</p></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderLegend() {
+  document.getElementById('statusLegend').innerHTML = Object.entries(statusMeta).map(([k,m]) =>
+    `<div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:${m.text}"></span><span class="text-gray-600">${m.icon} ${m.label}</span></div>`
+  ).join('');
+  // also populate filter buttons
+  const filterDiv = document.getElementById('filterButtons');
+  if (filterDiv) {
+    filterDiv.innerHTML = Object.entries(statusMeta).map(([k,m]) =>
+      `<button onclick="filterByStatus('${k}')" id="fs-${k}" class="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-700">${m.icon} ${m.label}</button>`
+    ).join('');
+  }
+}
+
+// ============================================================
+// ROOMS
+// ============================================================
+function openBuilding(building) {
+  currentBuilding = building;
+  currentStatusFilter = '';
+  currentPage = 1;
+  document.getElementById('pageTitle').textContent = 'อาคาร ' + building;
+  document.getElementById('backBtn').classList.remove('hidden');
+  showPage('roomsPage');
+  loadRooms();
+}
+function backToBuildings() { loadBuildings(); }
+
+function filterByStatus(s) {
+  currentStatusFilter = s;
+  currentPage = 1;
+  // update filter button visuals
+  document.querySelectorAll('[id^="fs-"]').forEach(btn => {
+    const isAll = btn.id === 'fs-all';
+    const matches = (isAll && s === '') || btn.id === 'fs-' + s;
+    btn.className = 'text-xs px-3 py-1.5 rounded-full ' + (matches ? 'bg-line text-white' : 'bg-gray-100 text-gray-700');
+  });
+  loadRooms();
+}
+
+async function loadRooms() {
+  const perPage = parseInt(document.getElementById('perPage').value) || 30;
+  const params = new URLSearchParams({ building: currentBuilding, status: currentStatusFilter, page: currentPage, per_page: perPage });
+  const data = await fetch(`/api/admin/operator/rooms?${params}`).then(r=>r.json());
+  updateSyncTime();
+
+  document.getElementById('roomsGrid').innerHTML = data.rooms.map(r => {
+    const m = r.status_meta;
+    const showPulse = ['maintenance','lost_key','needs_cleaning'].includes(r.operational_status);
+    return `<div class="room-card relative rounded-2xl shadow-sm overflow-hidden border border-gray-100 ${showPulse?'pulse-dot':''}" style="background:${m.bg};color:${m.text}" onclick="openRoom(${r.id})">
+      <div class="p-4 text-center">
+        <div class="text-3xl mb-1">${m.icon}</div>
+        <h3 class="text-2xl font-extrabold leading-none">${r.room_code||r.room_number}</h3>
+        <p class="text-xs mt-1 opacity-80 font-medium">${m.label}</p>
+        ${r.tenant_name?`<p class="text-xs mt-2 truncate font-medium">${r.tenant_name}</p>`:''}
+        ${r.open_maintenance>0?`<div class="absolute top-2 left-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">${r.open_maintenance}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // pagination
+  const pag = document.getElementById('pagination');
+  if (data.total_pages <= 1) { pag.innerHTML = ''; return; }
+  let html = `<button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''} class="px-3 py-2 rounded-lg ${currentPage===1?'bg-gray-100 text-gray-400':'bg-white border hover:bg-gray-50'}"><i class="ph ph-caret-left"></i></button>`;
+  for (let i=1;i<=data.total_pages;i++) {
+    html += `<button onclick="goPage(${i})" class="px-3 py-2 rounded-lg ${i===currentPage?'bg-line text-white':'bg-white border hover:bg-gray-50'}">${i}</button>`;
+  }
+  html += `<button onclick="goPage(${currentPage+1})" ${currentPage===data.total_pages?'disabled':''} class="px-3 py-2 rounded-lg ${currentPage===data.total_pages?'bg-gray-100 text-gray-400':'bg-white border hover:bg-gray-50'}"><i class="ph ph-caret-right"></i></button>`;
+  html += `<span class="ml-3 text-sm text-gray-500">รวม ${data.total} ห้อง</span>`;
+  pag.innerHTML = html;
+}
+function goPage(p) { currentPage = p; loadRooms(); }
+
+// ============================================================
+// ROOM DETAIL
+// ============================================================
+async function openRoom(id) {
+  const r = await fetch(`/api/admin/operator/rooms/${id}`).then(r=>r.json());
+  currentRoomDetail = r;
+  const m = r.status_meta;
+
+  document.getElementById('rsCode').textContent = r.room_code || r.room_number;
+  document.getElementById('rsBuilding').textContent = `อาคาร ${r.building} • ชั้น ${r.floor}`;
+
+  document.getElementById('rsStatusCard').style.background = m.bg;
+  document.getElementById('rsStatusCard').style.color = m.text;
+  document.getElementById('rsStatusCard').innerHTML = `<div class="text-5xl mb-2">${m.icon}</div><div class="font-bold text-lg">${m.label}</div>${r.status_note?`<p class="text-sm mt-1 opacity-90">"${r.status_note}"</p>`:''}`;
+
+  const fmt = n => Number(n||0).toLocaleString('th-TH');
+  document.getElementById('rsInfoGrid').innerHTML = `
+    <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-500">ผู้เช่า</p><p class="font-bold text-sm truncate">${r.tenant_name||'ว่าง'}</p></div>
+    <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-500">เบอร์ติดต่อ</p><p class="font-bold text-sm truncate">${r.phone||'-'}</p></div>
+    <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-500">ค่าเช่า/เดือน</p><p class="font-bold text-sm">฿${fmt(r.monthly_rent)}</p></div>
+    <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-500">เริ่มสัญญา</p><p class="font-bold text-sm">${r.contract_start_date||'-'}</p></div>`;
+
+  document.getElementById('rsStatusButtons').innerHTML = Object.entries(statusMeta).map(([k,sm]) =>
+    `<button onclick="askStatusChange('${k}')" class="text-sm py-3 rounded-xl font-medium ${k===r.operational_status?'ring-2 ring-line':''}" style="background:${sm.bg};color:${sm.text}">${sm.icon} ${sm.label}</button>`
+  ).join('');
+
+  // Show "เพิ่มผู้เช่า" big button if vacant
+  let onboardBtn = document.getElementById('rsOnboardBtn');
+  if (!onboardBtn) {
+    onboardBtn = document.createElement('div');
+    onboardBtn.id = 'rsOnboardBtn';
+    document.getElementById('rsStatusButtons').parentNode.insertBefore(onboardBtn, document.getElementById('rsStatusButtons').nextSibling);
+  }
+  if (r.operational_status === 'vacant') {
+    onboardBtn.innerHTML = `<button onclick="openOnboard()" class="w-full mt-3 bg-gradient-to-r from-line to-emerald-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl">
+      <span class="text-2xl mr-2">👤</span>เพิ่มผู้เช่าใหม่ — ทำสัญญา
+    </button>`;
+  } else if (r.tenant_name) {
+    // Occupied room — show แจ้งออก & ต่อสัญญา
+    onboardBtn.innerHTML = `
+      <div class="grid grid-cols-2 gap-2 mt-3">
+        <button onclick="openRenewModal()" class="flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 py-3 rounded-2xl font-bold text-sm border-2 border-purple-200 transition">
+          <i class="ph ph-arrow-clockwise text-lg"></i>ต่อสัญญา
+        </button>
+        <button onclick="openMoveOutModal()" class="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 py-3 rounded-2xl font-bold text-sm border-2 border-red-200 transition">
+          <i class="ph ph-door-open text-lg"></i>แจ้งออก
+        </button>
+      </div>`;
+  } else {
+    onboardBtn.innerHTML = '';
+  }
+
+  if (r.latest_bill) {
+    document.getElementById('rsBillSection').classList.remove('hidden');
+    const statusTh = { pending:'รอชำระ', reviewing:'รอตรวจ', paid:'ชำระแล้ว', overdue:'เกินกำหนด' };
+    document.getElementById('rsBill').innerHTML = `
+      <div onclick="openBillDetail(${r.latest_bill.id})" class="cursor-pointer hover:bg-gray-100 transition rounded-xl flex justify-between items-center">
+        <div>
+          <p class="font-bold">฿${fmt(r.latest_bill.total_amount)}</p>
+          <p class="text-xs text-gray-500">เดือน ${r.latest_bill.billing_month}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs px-2 py-1 rounded-full bg-white">${statusTh[r.latest_bill.status]||r.latest_bill.status}</span>
+          <span class="text-gray-400">›</span>
+        </div>
+      </div>`;
+  } else document.getElementById('rsBillSection').classList.add('hidden');
+
+  if (r.open_maintenance && r.open_maintenance.length) {
+    document.getElementById('rsMaint').innerHTML = r.open_maintenance.map(mr => `<div class="bg-orange-50 rounded-xl p-3"><p class="font-medium text-sm">🔧 ${mr.title}</p><p class="text-xs text-gray-500">${mr.description||''}</p></div>`).join('');
+  } else {
+    document.getElementById('rsMaint').innerHTML = '<p class="text-xs text-gray-400 italic">ยังไม่มีรายการแจ้งซ่อม</p>';
+  }
+
+  if (r.recent_status_changes && r.recent_status_changes.length) {
+    document.getElementById('rsLogSection').classList.remove('hidden');
+    document.getElementById('rsLog').innerHTML = r.recent_status_changes.slice(0,5).map(l => `<div class="text-xs text-gray-600 flex justify-between"><span>${(statusMeta[l.from_status]||{label:l.from_status}).label} → <b>${(statusMeta[l.to_status]||{label:l.to_status}).label}</b></span><span class="text-gray-400">${new Date(l.changed_at).toLocaleDateString('th-TH')}</span></div>`).join('');
+  } else document.getElementById('rsLogSection').classList.add('hidden');
+
+  document.getElementById('roomSheet').style.display = 'flex';
+}
+function closeRoomSheet() { document.getElementById('roomSheet').style.display = 'none'; }
+
+// ============================================================
+// BILL DETAIL MODAL (อ่านอย่างเดียว — Operator ดูข้อมูลบิลและสั่งส่ง LINE)
+// ============================================================
+async function openBillDetail(billId) {
+  try {
+    const data = await fetch(`/api/admin/bills/${billId}/detail`).then(r => r.json());
+    if (data.error) { alert(data.error); return; }
+    const b = data.bill;
+    const statusTh = { pending:'รอชำระ', reviewing:'รอตรวจ', paid:'ชำระแล้ว', overdue:'เกินกำหนด' };
+    const statusColor = { pending:'bg-amber-100 text-amber-700', reviewing:'bg-blue-100 text-blue-700', paid:'bg-emerald-100 text-emerald-700', overdue:'bg-red-100 text-red-700' };
+    const html = `
+      <div class="fixed inset-0 bg-black/60 z-[60] flex items-end md:items-center justify-center p-0 md:p-4" id="billDetailModal" onclick="if(event.target===this)closeBillDetail()">
+        <div class="bg-white w-full max-w-lg rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col max-h-[92vh]">
+          <div class="px-6 py-4 border-b flex justify-between items-center">
+            <h2 class="font-bold text-lg">📄 บิลเดือน ${b.billing_month}</h2>
+            <button onclick="closeBillDetail()" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button>
+          </div>
+          <div class="overflow-y-auto p-6 space-y-4 text-sm">
+            <div class="flex justify-between items-center"><span class="text-gray-500">สถานะ</span><span class="px-3 py-1 rounded-full ${statusColor[b.status]||'bg-gray-100'} font-semibold">${statusTh[b.status]||b.status}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">ห้อง</span><span class="font-bold">${b.room_code||b.room_number}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">กำหนดชำระ</span><span>${b.due_date||'—'}</span></div>
+            <hr>
+            <div class="flex justify-between"><span class="text-gray-500">ค่าเช่า</span><span>฿${fmt(b.rent_amount)}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">ค่าน้ำ (${b.water_meter_prev||0} → ${b.water_meter_curr||0} = ${b.water_units||0} หน่วย)</span><span>฿${fmt(b.water_amount)}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">ค่าไฟ (${b.electric_meter_prev||0} → ${b.electric_meter_curr||0} = ${b.electric_units||0} หน่วย)</span><span>฿${fmt(b.electric_amount)}</span></div>
+            ${b.other_amount > 0 ? `<div class="flex justify-between"><span class="text-gray-500">${b.other_label||'อื่นๆ'}</span><span>฿${fmt(b.other_amount)}</span></div>` : ''}
+            ${b.late_fee > 0 ? `<div class="flex justify-between text-red-600"><span>ค่าปรับ</span><span>฿${fmt(b.late_fee)}</span></div>` : ''}
+            <hr>
+            <div class="flex justify-between text-lg font-bold"><span>รวม</span><span class="text-emerald-600">฿${fmt(b.total_amount)}</span></div>
+            ${data.payments && data.payments.length ? `
+              <div class="pt-3 border-t">
+                <p class="font-semibold text-gray-700 mb-2">ประวัติการชำระ</p>
+                ${data.payments.map(p => `<div class="bg-gray-50 rounded-lg p-2 mb-1 text-xs flex justify-between"><span>${p.created_at?.slice(0,16)||''}</span><span class="font-semibold ${p.status==='approved'?'text-emerald-600':p.status==='rejected'?'text-red-600':'text-amber-600'}">${p.status}</span></div>`).join('')}
+              </div>` : ''}
+          </div>
+          <div class="px-6 py-4 border-t bg-gray-50 flex gap-2">
+            <button onclick="closeBillDetail()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold">ปิด</button>
+            ${b.status !== 'paid' ? `<button onclick="resendBillLine(${b.id})" class="flex-1 bg-line text-white py-3 rounded-xl font-semibold">📤 ส่ง LINE อีกครั้ง</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap.firstElementChild);
+  } catch (e) { alert('โหลดข้อมูลบิลไม่ได้: ' + e.message); }
+}
+function closeBillDetail() { document.getElementById('billDetailModal')?.remove(); }
+// ============================================================
+// CREATE MAINTENANCE (Operator รับแจ้งซ่อมจากลูกบ้าน)
+// ============================================================
+function openCreateMaint() {
+  if (!currentRoomDetail) return;
+  const html = `
+    <div class="fixed inset-0 bg-black/60 z-[60] flex items-end md:items-center justify-center p-0 md:p-4" id="maintModal" onclick="if(event.target===this)closeCreateMaint()">
+      <div class="bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+          <h2 class="font-bold text-lg">🔧 รับแจ้งซ่อม — ห้อง ${currentRoomDetail.room_code||currentRoomDetail.room_number}</h2>
+          <button onclick="closeCreateMaint()" class="text-gray-400"><i class="ph ph-x text-2xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+          <div>
+            <label class="text-sm font-semibold text-gray-700 block mb-2">หัวข้อ <span class="text-red-500">*</span></label>
+            <input id="maintTitle" type="text" placeholder="เช่น น้ำรั่ว, แอร์ไม่เย็น" class="w-full border-2 rounded-xl px-4 py-3 text-base focus:border-orange-400 outline-none" />
+          </div>
+          <div>
+            <label class="text-sm font-semibold text-gray-700 block mb-2">รายละเอียด</label>
+            <textarea id="maintDesc" rows="4" placeholder="บอกรายละเอียดเพิ่มเติม (ถ้ามี)" class="w-full border-2 rounded-xl px-4 py-3 text-base focus:border-orange-400 outline-none"></textarea>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            ${['น้ำรั่ว','แอร์ไม่เย็น','ไฟดับ','ลูกบิดเสีย','ห้องน้ำตัน','ประตูค้าง'].map(t=>`<button type="button" onclick="document.getElementById('maintTitle').value='${t}'" class="bg-gray-100 hover:bg-orange-100 rounded-lg py-2 text-sm">${t}</button>`).join('')}
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t bg-gray-50 flex gap-2">
+          <button onclick="closeCreateMaint()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold">ยกเลิก</button>
+          <button onclick="submitMaint()" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold">บันทึก</button>
+        </div>
+      </div>
+    </div>`;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  document.body.appendChild(wrap.firstElementChild);
+  setTimeout(() => document.getElementById('maintTitle')?.focus(), 100);
+}
+function closeCreateMaint() { document.getElementById('maintModal')?.remove(); }
+async function submitMaint() {
+  const title = document.getElementById('maintTitle').value.trim();
+  const description = document.getElementById('maintDesc').value.trim();
+  if (!title) { alert('กรุณาใส่หัวข้อ'); return; }
+  try {
+    const r = await fetch('/api/admin/maintenance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room_id: currentRoomDetail.id, title, description })
+    }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert('✅ บันทึกรายการแจ้งซ่อมเรียบร้อย');
+    closeCreateMaint();
+    openRoom(currentRoomDetail.id); // reload room sheet
+  } catch (e) { alert('⚠️ ' + e.message); }
+}
+
+async function resendBillLine(billId) {
+  if (!confirm('ส่งบิลไป LINE อีกครั้ง?')) return;
+  try {
+    const r = await fetch(`/api/admin/bills/${billId}/resend`, { method: 'POST' }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert(r.sent ? '✅ ส่ง LINE สำเร็จ' : '⏭ ผู้เช่ายังไม่ผูก LINE');
+  } catch (e) { alert('⚠️ ' + e.message); }
+}
+
+function askStatusChange(s) {
+  pendingStatus = s;
+  document.getElementById('noteTitle').textContent = 'เปลี่ยนเป็น: ' + statusMeta[s].label;
+  document.getElementById('noteText').value = '';
+  openModal('noteModal');
+}
+async function confirmStatusChange() {
+  if (!currentRoomDetail || !pendingStatus) return;
+  const note = document.getElementById('noteText').value;
+  await fetch(`/api/admin/operator/rooms/${currentRoomDetail.id}/status`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ status: pendingStatus, note })
+  });
+  closeModal('noteModal');
+  await openRoom(currentRoomDetail.id);
+  loadRooms();
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function openOpSheet(id) { document.getElementById(id).style.display = 'flex'; }
+function closeOpSheet(id) { document.getElementById(id).style.display = 'none'; }
+function fmt(n) { return Number(n||0).toLocaleString('th-TH'); }
+
+// ============================================================
+// BILLS
+// ============================================================
+async function openBills() {
+  const month = new Date().toISOString().slice(0, 7);
+  const list = await fetch('/api/admin/bills?month='+month).then(r=>r.json());
+  const statusTh = { pending:'รอชำระ', reviewing:'รอตรวจสลิป', paid:'ชำระแล้ว', overdue:'เกินกำหนด' };
+  const statusCls = { pending:'bg-yellow-100 text-yellow-700', reviewing:'bg-blue-100 text-blue-700', paid:'bg-green-100 text-green-700', overdue:'bg-red-100 text-red-700' };
+  document.getElementById('billsContent').innerHTML = list.length ?
+    `<p class="text-sm text-gray-500 mb-3">เดือน ${month} • ${list.length} รายการ</p>` +
+    list.map(b => `<div class="bg-gray-50 rounded-xl p-4 mb-2 flex justify-between items-center">
+      <div>
+        <p class="font-bold">ห้อง ${b.room_code||b.room_number} ${b.tenant_name?'• '+b.tenant_name:''}</p>
+        <p class="text-xs text-gray-500">กำหนดชำระ ${b.due_date||'-'}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-xl font-bold">฿${fmt(b.total_amount)}</p>
+        <span class="text-xs px-2 py-0.5 rounded-full ${statusCls[b.status]||''}">${statusTh[b.status]||b.status}</span>
+      </div>
+    </div>`).join('')
+    : '<p class="text-center text-gray-400 py-8">ยังไม่มีบิลในเดือนนี้</p>';
+  openOpSheet('billsSheet');
+}
+
+// ============================================================
+// PAYMENTS (slip approval)
+// ============================================================
+async function openPayments() {
+  const list = await fetch('/api/admin/payments?status=pending').then(r=>r.json());
+  document.getElementById('paymentsContent').innerHTML = list.length ?
+    list.map(p => `<div class="bg-gray-50 rounded-xl p-4 mb-3 flex gap-4">
+      ${p.slip_path ? `<img src="/${p.slip_path}" class="w-20 h-20 rounded-lg object-cover">` : `<div class="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center"><i class="ph ph-image text-gray-400 text-2xl"></i></div>`}
+      <div class="flex-1">
+        <p class="font-bold">ห้อง ${p.room_code||p.room_number} • ${p.tenant_name||'-'}</p>
+        <p class="text-sm text-gray-500">บิลเดือน ${p.billing_month} • <span class="font-semibold">฿${fmt(p.bill_total)}</span></p>
+        <p class="text-xs text-gray-400">${new Date(p.created_at).toLocaleString('th-TH')}</p>
+        <div class="flex gap-2 mt-2">
+          <button onclick="approveSlip(${p.id})" class="bg-line text-white text-xs px-3 py-1.5 rounded-lg">✓ อนุมัติ</button>
+          <button onclick="rejectSlip(${p.id})" class="bg-red-50 text-red-600 text-xs px-3 py-1.5 rounded-lg">✕ ปฏิเสธ</button>
+        </div>
+      </div>
+    </div>`).join('')
+    : '<p class="text-center text-gray-400 py-8">ไม่มีสลิปรอตรวจ ✅</p>';
+  openOpSheet('paymentsSheet');
+}
+async function approveSlip(id) {
+  await fetch(`/api/admin/payments/${id}/approve`, { method:'POST' });
+  openPayments();
+}
+async function rejectSlip(id) {
+  const reason = prompt('เหตุผล (ไม่บังคับ):') || '';
+  await fetch(`/api/admin/payments/${id}/reject`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({reason}) });
+  openPayments();
+}
+
+// ============================================================
+// MAINTENANCE
+// ============================================================
+async function openMaint() {
+  const list = await fetch('/api/admin/maintenance').then(r=>r.json());
+  const statusMap = { pending:'รอดำเนินการ', in_progress:'กำลังดำเนินการ', completed:'เสร็จแล้ว', cancelled:'ยกเลิก' };
+  const open = list.filter(m => m.status !== 'completed' && m.status !== 'cancelled');
+  document.getElementById('maintContent').innerHTML = open.length ?
+    open.map(m => `<div class="bg-gray-50 rounded-xl p-4 mb-2">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-bold">ห้อง ${m.room_code||m.room_number} • ${m.title}</p>
+          ${m.description ? `<p class="text-sm text-gray-600 mt-1">${m.description}</p>` : ''}
+          <p class="text-xs text-gray-400 mt-1">${new Date(m.created_at).toLocaleString('th-TH')}</p>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">${statusMap[m.status]}</span>
+      </div>
+      <div class="flex gap-2 mt-3">
+        ${m.status==='pending'?`<button onclick="updateMaint(${m.id},'in_progress')" class="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-lg">รับเรื่อง</button>`:''}
+        <button onclick="updateMaint(${m.id},'completed')" class="bg-green-50 text-green-700 text-xs px-3 py-1.5 rounded-lg">เสร็จแล้ว</button>
+      </div>
+    </div>`).join('')
+    : '<p class="text-center text-gray-400 py-8">ไม่มีงานซ่อมที่ค้าง 🎉</p>';
+  openOpSheet('maintSheet');
+}
+async function updateMaint(id, status) {
+  await fetch(`/api/admin/maintenance/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+  openMaint();
+}
+
+// ============================================================
+// PRORATE
+// ============================================================
+function openProrate() {
+  document.getElementById('opProrateForm').reset();
+  document.querySelector('#opProrateForm [name=move_in_date]').value = new Date().toISOString().slice(0,10);
+  document.getElementById('opProrateResult').innerHTML = '';
+  openOpSheet('prorateSheet');
+}
+document.getElementById('opProrateForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const r = await fetch('/api/admin/proration/calculate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r=>r.json());
+  if (r.error) return alert(r.error);
+  document.getElementById('opProrateResult').innerHTML = `
+    <div class="bg-gradient-to-br from-line/10 to-emerald-50 rounded-2xl p-5 text-center">
+      <p class="text-sm text-gray-500">ค่าเช่าเดือนแรก</p>
+      <p class="text-4xl font-extrabold text-line my-2">฿${fmt(r.prorated_amount)}</p>
+      ${r.is_partial ? `<p class="text-xs text-gray-500">${r.breakdown}</p>` : '<p class="text-xs text-orange-500">เข้าวันแรกของเดือน — ไม่ต้องเฉลี่ย</p>'}
+    </div>
+    <div class="mt-3 bg-white border rounded-xl p-3 text-xs space-y-1">
+      <div class="flex justify-between"><span>ค่าเช่าเต็มเดือน</span><span class="font-bold">฿${fmt(r.full_month_amount)}</span></div>
+      <div class="flex justify-between"><span>วันที่อยู่ในเดือน</span><span class="font-bold">${r.days_remaining}/${r.days_total} วัน</span></div>
+      <div class="flex justify-between"><span>ครบกำหนดชำระ</span><span class="font-bold">${r.first_due_date}</span></div>
+    </div>`;
+});
+
+// ============================================================
+// ONBOARD TENANT WIZARD
+// ============================================================
+let obStep = 1;
+let obData = {};
+let obDeposits = [];
+
+const CONTRACT_PRESETS = [
+  { months: 6, label: '6 เดือน' },
+  { months: 12, label: '1 ปี (12 เดือน)' },
+  { months: 24, label: '2 ปี (24 เดือน)' },
+  { months: 'custom', label: 'กำหนดเอง' }
+];
+
+async function openOnboard() {
+  if (!currentRoomDetail) return;
+  closeRoomSheet();
+  obStep = 1;
+  obData = { months: 12 };
+
+  document.getElementById('obRoomLabel').textContent = `ห้อง ${currentRoomDetail.room_code || currentRoomDetail.room_number}`;
+
+  // Reset all inputs
+  ['ob_name','ob_phone','ob_id_card','ob_address','ob_occupation','ob_workplace',
+   'ob_emerg_name','ob_emerg_phone','ob_emerg_relation',
+   'ob_guar_name','ob_guar_phone','ob_guar_id_card','ob_terms'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+
+  // Pre-fill rent + dates
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('ob_start').value = today;
+  document.getElementById('ob_rent').value = currentRoomDetail.monthly_rent || 0;
+
+  // Get rent_due_day from license
+  try {
+    const lic = await fetch('/api/admin/license').then(r => r.json());
+    document.getElementById('ob_due_day').value = lic.rent_due_day || 5;
+  } catch {}
+
+  // Render presets
+  renderContractPresets();
+
+  // Calc end date initially
+  await recalcEndDate();
+
+  // Load deposits
+  try {
+    const charges = await fetch('/api/admin/charges?type=deposit&enabled=1').then(r => r.json());
+    obDeposits = charges.map(c => ({ ...c, selected: !!c.required, current_amount: c.amount }));
+    renderDeposits();
+  } catch { obDeposits = []; renderDeposits(); }
+
+  showStep(1);
+  document.getElementById('onboardSheet').style.display = 'flex';
+}
+
+function closeOnboard() {
+  document.getElementById('onboardSheet').style.display = 'none';
+}
+
+const OB_TOTAL_STEPS = 5;
+function showStep(n) {
+  obStep = n;
+  document.querySelectorAll('.ob-step').forEach((el, i) => {
+    el.classList.toggle('hidden', i + 1 !== n);
+  });
+  // Step indicator (5 steps)
+  for (let i = 1; i <= OB_TOTAL_STEPS; i++) {
+    const dot = document.getElementById('dot-' + i);
+    if (!dot) continue;
+    dot.classList.remove('done', 'active', 'todo');
+    if (i < n) { dot.classList.add('done'); dot.innerHTML = '<i class="ph ph-check"></i>'; }
+    else if (i === n) { dot.classList.add('active'); dot.textContent = i; }
+    else { dot.classList.add('todo'); dot.textContent = i; }
+    if (i < OB_TOTAL_STEPS) {
+      const line = document.getElementById('line-' + i);
+      if (line) line.classList.toggle('done', i < n);
+    }
+  }
+  const titles = ['ข้อมูลผู้เช่า','สัญญาเช่า','เงินมัดจำ','เอกสาร & การชำระ','ตรวจสอบและยืนยัน'];
+  document.getElementById('stepTitle').textContent = `ขั้นที่ ${n}: ${titles[n-1]}`;
+
+  document.getElementById('obBack').style.display = n === 1 ? 'none' : '';
+  document.getElementById('obNext').classList.toggle('hidden', n === OB_TOTAL_STEPS);
+  document.getElementById('obSubmit').classList.toggle('hidden', n !== OB_TOTAL_STEPS);
+
+  if (n === 4) loadObPaymentInfo();
+  if (n === OB_TOTAL_STEPS) renderReview();
+}
+
+async function loadObPaymentInfo() {
+  try {
+    const dorm = await fetch('/api/admin/dormitory').then(r => r.json());
+    const el = document.getElementById('obPaymentDetails');
+    if (dorm.promptpay_number || dorm.bank_account_number) {
+      let html = '';
+      if (dorm.promptpay_number) html += `<div class="flex justify-between py-1.5 border-b border-gray-100"><span class="text-gray-500">พร้อมเพย์</span><span class="font-bold text-gray-900">${dorm.promptpay_number}</span></div>`;
+      if (dorm.promptpay_name) html += `<div class="flex justify-between py-1.5 border-b border-gray-100"><span class="text-gray-500">ชื่อบัญชี</span><span class="font-bold text-gray-900">${dorm.promptpay_name}</span></div>`;
+      if (dorm.bank_account_number) html += `<div class="flex justify-between py-1.5 border-b border-gray-100"><span class="text-gray-500">เลขบัญชี</span><span class="font-bold text-gray-900">${dorm.bank_account_number}</span></div>`;
+      if (dorm.bank_name) html += `<div class="flex justify-between py-1.5"><span class="text-gray-500">ธนาคาร</span><span class="font-bold text-gray-900">${dorm.bank_name}</span></div>`;
+      el.innerHTML = html || '<p class="text-gray-400 italic">ยังไม่ได้ตั้งค่าบัญชีรับเงิน — ตั้งค่าได้ที่ Admin → ตั้งค่าระบบ</p>';
+    } else {
+      el.innerHTML = '<p class="text-gray-400 italic">ยังไม่ได้ตั้งค่าบัญชีรับเงิน — ตั้งค่าได้ที่ Admin → ตั้งค่าระบบ</p>';
+    }
+  } catch { document.getElementById('obPaymentDetails').innerHTML = '<p class="text-gray-400">โหลดข้อมูลไม่ได้</p>'; }
+}
+
+function obFileSelected(input, labelId, key) {
+  const files = input.files;
+  if (!files || !files.length) return;
+  document.getElementById(labelId).textContent = files.length === 1 ? `✓ ${files[0].name}` : `✓ ${files.length} ไฟล์`;
+  // Store file names in obData (actual upload is separate)
+  obData[key] = key === 'room_photos' ? Array.from(files).map(f => f.name) : files[0].name;
+}
+
+function nextStep() {
+  if (obStep === 1) {
+    const name = document.getElementById('ob_name').value.trim();
+    if (!name) return alert('กรุณากรอกชื่อ-นามสกุล');
+    obData.tenant_name = name;
+    obData.phone = document.getElementById('ob_phone').value.trim();
+    obData.id_card = document.getElementById('ob_id_card').value.trim();
+    obData.address = document.getElementById('ob_address').value.trim();
+    obData.occupation = document.getElementById('ob_occupation').value.trim();
+    obData.workplace = document.getElementById('ob_workplace').value.trim();
+    obData.emergency_name = document.getElementById('ob_emerg_name').value.trim();
+    obData.emergency_phone = document.getElementById('ob_emerg_phone').value.trim();
+    obData.emergency_relation = document.getElementById('ob_emerg_relation').value.trim();
+    obData.guarantor_name = document.getElementById('ob_guar_name').value.trim();
+    obData.guarantor_phone = document.getElementById('ob_guar_phone').value.trim();
+    obData.guarantor_id_card = document.getElementById('ob_guar_id_card').value.trim();
+  }
+  if (obStep === 2) {
+    const start = document.getElementById('ob_start').value;
+    const rent = parseFloat(document.getElementById('ob_rent').value);
+    if (!start) return alert('เลือกวันเริ่มสัญญา');
+    if (!rent || rent <= 0) return alert('กรอกค่าเช่ารายเดือน');
+    obData.contract_start = start;
+    obData.move_in_date = start;
+    obData.contract_end = document.getElementById('ob_end').value;
+    obData.monthly_rent = rent;
+    obData.due_day = parseInt(document.getElementById('ob_due_day').value) || 5;
+    obData.custom_terms = document.getElementById('ob_terms').value.trim();
+    obData.contract_months = obData.months === 'custom' ? parseInt(document.getElementById('ob_months_custom').value) || 12 : obData.months;
+  }
+  // step 4: documents — nothing required, just proceed
+  if (obStep < OB_TOTAL_STEPS) showStep(obStep + 1);
+}
+function prevStep() { if (obStep > 1) showStep(obStep - 1); }
+
+function renderContractPresets() {
+  document.getElementById('contractPresets').innerHTML = CONTRACT_PRESETS.map(p =>
+    `<button type="button" class="preset-btn ${p.months === obData.months ? 'selected' : ''}" onclick="selectContractMonths('${p.months}')">${p.label}</button>`
+  ).join('');
+}
+function selectContractMonths(m) {
+  obData.months = m === 'custom' ? 'custom' : parseInt(m);
+  document.getElementById('ob_months_custom').classList.toggle('hidden', obData.months !== 'custom');
+  renderContractPresets();
+  recalcEndDate();
+}
+async function recalcEndDate() {
+  const start = document.getElementById('ob_start').value;
+  if (!start) return;
+  const months = obData.months === 'custom'
+    ? parseInt(document.getElementById('ob_months_custom').value) || 12
+    : obData.months;
+  try {
+    const r = await fetch('/api/admin/operator/contract-end-calc', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_date: start, months })
+    }).then(r => r.json());
+    if (r.end_date) {
+      document.getElementById('ob_end').value = r.end_date;
+      document.getElementById('endHint').textContent = `เริ่ม ${start} → จบ ${r.end_date} (${months} เดือน)`;
+    }
+  } catch {}
+}
+
+document.addEventListener('change', e => {
+  if (['ob_start', 'ob_months_custom'].includes(e.target.id)) recalcEndDate();
+});
+
+function renderDeposits() {
+  document.getElementById('depositsList').innerHTML = obDeposits.length === 0
+    ? '<div class="bg-gray-50 rounded-xl p-6 text-center text-gray-400">ยังไม่มีรายการมัดจำในระบบ — เพิ่มได้ที่ Admin → ค่ามัดจำ & รายการเก็บ</div>'
+    : obDeposits.map((d, i) => `
+      <label class="bg-white border-2 ${d.selected?'border-line bg-line/5':'border-gray-100'} rounded-2xl p-4 flex items-center gap-4 cursor-pointer transition">
+        <input type="checkbox" ${d.selected?'checked':''} onchange="toggleDeposit(${i})" class="w-6 h-6 cursor-pointer">
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <p class="font-bold text-lg">${d.label}</p>
+            ${d.required?'<span class="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">บังคับ</span>':''}
+            ${d.refundable?'<span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">คืนได้</span>':''}
+          </div>
+          ${d.description?`<p class="text-sm text-gray-500 mt-1">${d.description}</p>`:''}
+        </div>
+        <input type="number" value="${d.current_amount}" onchange="updateDepositAmount(${i}, this.value)" class="ipt w-32 text-right text-lg font-bold">
+        <span class="font-semibold text-gray-500">บาท</span>
+      </label>
+    `).join('');
+  updateTotalDeposit();
+}
+function toggleDeposit(i) {
+  obDeposits[i].selected = !obDeposits[i].selected;
+  renderDeposits();
+}
+function updateDepositAmount(i, v) {
+  obDeposits[i].current_amount = parseFloat(v) || 0;
+  updateTotalDeposit();
+}
+function updateTotalDeposit() {
+  const total = obDeposits.filter(d => d.selected).reduce((s, d) => s + (d.current_amount || 0), 0);
+  document.getElementById('totalDeposit').textContent = '฿' + total.toLocaleString('th-TH');
+  obData.total_deposit = total;
+}
+
+async function renderReview() {
+  obData.deposits = obDeposits.filter(d => d.selected).map(d => ({ label: d.label, amount: d.current_amount }));
+  // Get prorate calc
+  let prorate = null;
+  try {
+    prorate = await fetch('/api/admin/proration/calculate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ move_in_date: obData.move_in_date, monthly_rent: obData.monthly_rent, due_day: obData.due_day })
+    }).then(r => r.json());
+  } catch {}
+
+  const fmt = n => Number(n||0).toLocaleString('th-TH');
+  document.getElementById('reviewContent').innerHTML = `
+    <div class="bg-white border-2 border-line/20 rounded-2xl p-5">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">👤 ผู้เช่า</h3>
+      <div class="space-y-2 text-base">
+        <div class="flex justify-between"><span class="text-gray-500">ชื่อ</span><span class="font-semibold">${obData.tenant_name}</span></div>
+        ${obData.phone?`<div class="flex justify-between"><span class="text-gray-500">เบอร์</span><span class="font-semibold">${obData.phone}</span></div>`:''}
+        ${obData.id_card?`<div class="flex justify-between"><span class="text-gray-500">บัตรประชาชน</span><span class="font-semibold">${obData.id_card}</span></div>`:''}
+        ${obData.occupation?`<div class="flex justify-between"><span class="text-gray-500">อาชีพ</span><span class="font-semibold">${obData.occupation}</span></div>`:''}
+      </div>
+    </div>
+
+    <div class="bg-white border-2 border-purple-200 rounded-2xl p-5">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">📜 สัญญาเช่า</h3>
+      <div class="space-y-2 text-base">
+        <div class="flex justify-between"><span class="text-gray-500">ระยะเวลา</span><span class="font-semibold">${obData.contract_months} เดือน</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">เริ่มสัญญา</span><span class="font-semibold">${obData.contract_start}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">สิ้นสุดสัญญา</span><span class="font-semibold">${obData.contract_end}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ค่าเช่ารายเดือน</span><span class="font-bold text-line text-lg">฿${fmt(obData.monthly_rent)}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ชำระทุกวันที่</span><span class="font-semibold">${obData.due_day} ของเดือน</span></div>
+      </div>
+    </div>
+
+    <div class="bg-white border-2 border-green-200 rounded-2xl p-5">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">💰 เงินมัดจำ</h3>
+      ${obData.deposits.length ? obData.deposits.map(d =>
+        `<div class="flex justify-between py-1"><span class="text-gray-700">${d.label}</span><span class="font-semibold">฿${fmt(d.amount)}</span></div>`
+      ).join('') : '<p class="text-gray-400 text-sm">ไม่ได้เลือกมัดจำ</p>'}
+      <div class="border-t mt-2 pt-2 flex justify-between"><span class="font-bold">รวมมัดจำ</span><span class="font-bold text-line text-xl">฿${fmt(obData.total_deposit||0)}</span></div>
+    </div>
+
+    ${prorate && prorate.is_partial ? `
+    <div class="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-orange-200 rounded-2xl p-5">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">🧮 ค่าเช่าเดือนแรก (เฉลี่ย)</h3>
+      <p class="text-sm text-gray-700 mb-2">เนื่องจากเข้าอยู่กลางเดือน ระบบจะคิดเฉลี่ย:</p>
+      <p class="text-3xl font-extrabold text-orange-600 text-center my-3">฿${fmt(prorate.prorated_amount)}</p>
+      <p class="text-xs text-gray-600 text-center">${prorate.breakdown}</p>
+      <p class="text-xs text-gray-500 text-center mt-1">ครบกำหนด ${prorate.first_due_date}</p>
+    </div>` : ''}
+
+    <div class="bg-blue-50 rounded-2xl p-5">
+      <h3 class="font-bold mb-2">💸 ยอดที่ต้องเก็บวันแรก</h3>
+      <div class="space-y-1 text-sm">
+        <div class="flex justify-between"><span>เงินมัดจำ</span><span class="font-semibold">฿${fmt(obData.total_deposit||0)}</span></div>
+        <div class="flex justify-between"><span>ค่าเช่าเดือนแรก ${prorate&&prorate.is_partial?'(เฉลี่ย)':'(เต็มเดือน)'}</span><span class="font-semibold">฿${fmt((prorate&&prorate.is_partial)?prorate.prorated_amount:obData.monthly_rent)}</span></div>
+        <div class="flex justify-between border-t pt-2 mt-2"><span class="font-bold">รวมทั้งหมด</span><span class="font-extrabold text-2xl text-blue-700">฿${fmt((obData.total_deposit||0) + ((prorate&&prorate.is_partial)?prorate.prorated_amount:obData.monthly_rent))}</span></div>
+      </div>
+    </div>
+  `;
+}
+
+async function submitOnboard() {
+  if (!currentRoomDetail) return;
+  const btn = document.getElementById('obSubmit');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-spinner-gap" style="animation:spin 1s linear infinite"></i> กำลังบันทึก...';
+  try {
+    const r = await fetch(`/api/admin/operator/rooms/${currentRoomDetail.id}/onboard-tenant`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obData)
+    }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    closeOnboard();
+    loadRooms();
+    if (r.share_token) {
+      showShareLinkModal(r);
+    } else {
+      alert(`✅ เพิ่มผู้เช่าสำเร็จ!\nสัญญา ${r.contract_number}\nสิ้นสุด ${r.end_date}`);
+    }
+  } catch (e) {
+    alert('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ph ph-check"></i> ยืนยันและบันทึก';
+  }
+}
+
+// ============================================================
+// SHARE LINK MODAL (after onboarding)
+// ============================================================
+function showShareLinkModal(r) {
+  const url = `${location.origin}/tenant/${r.share_token}`;
+  document.getElementById('shareLinkInput').value = url;
+  document.getElementById('shareContractLabel').textContent = `สัญญา ${r.contract_number} • สิ้นสุด ${r.end_date}`;
+  const msg = `📋 รายละเอียดห้องและสัญญาเช่าของคุณ\nกดเพื่อดูข้อมูลทั้งหมด:\n${url}`;
+  document.getElementById('shareLineBtn').href = `https://line.me/R/share?text=${encodeURIComponent(msg)}`;
+  document.getElementById('shareSmsBtn').href = `sms:?body=${encodeURIComponent(msg)}`;
+  document.getElementById('shareLinkModal').style.display = 'flex';
+}
+function closeShareLinkModal() {
+  document.getElementById('shareLinkModal').style.display = 'none';
+}
+async function copyShareLink() {
+  const url = document.getElementById('shareLinkInput').value;
+  try {
+    await navigator.clipboard.writeText(url);
+    const btn = document.getElementById('copyShareBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-check"></i> คัดลอกแล้ว';
+    btn.classList.add('bg-emerald-600');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-emerald-600'); }, 1500);
+  } catch {
+    document.getElementById('shareLinkInput').select();
+    document.execCommand('copy');
+    alert('คัดลอกแล้ว');
+  }
+}
+
+// ============================================================
+// SEND REMINDERS
+// ============================================================
+async function sendOverdueReminders() {
+  if (!confirm('ส่งข้อความเตือนค้างชำระให้ลูกบ้านทุกห้องที่ค้าง?')) return;
+  // Loading toast
+  const toast = document.createElement('div');
+  toast.id = 'reminderToast';
+  toast.className = 'fixed top-4 right-4 bg-white shadow-2xl border-2 border-red-200 rounded-2xl px-5 py-4 z-50 flex items-center gap-3';
+  toast.innerHTML = '<div class="w-5 h-5 border-3 border-red-400 border-t-transparent rounded-full animate-spin"></div><span class="font-semibold text-gray-700">กำลังส่งข้อความ…</span>';
+  document.body.appendChild(toast);
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 30000);
+    const res = await fetch('/api/admin/collection/run', { method:'POST', signal: ctrl.signal });
+    clearTimeout(tid);
+    const r = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(r.error || 'ส่งไม่สำเร็จ');
+    alert(`✅ ส่งสำเร็จ ${r.sent||0} ราย\n⏭ ข้าม ${r.skipped||0} ราย\n📋 บิลค้างทั้งหมด ${r.total_overdue||0} บิล`);
+  } catch (e) {
+    alert('⚠️ ' + (e.name === 'AbortError' ? 'หมดเวลา 30 วินาที — LINE token อาจไม่ถูกต้อง หรือเครือข่ายช้า' : e.message));
+  } finally {
+    toast.remove();
+  }
+}
+
+// ============================================================
+// MONTHLY CALENDAR (Buildings page)
+// ============================================================
+let _miniCalEvents = [], _miniCalDay = null;
+let _opCalYear = new Date().getFullYear(), _opCalMonth = new Date().getMonth();
+const _opCalThMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+async function loadUpcomingTasks() {
+  const y = _opCalYear, m = _opCalMonth;
+  const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const to = `${y}-${String(m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  try {
+    _miniCalEvents = await fetch(`/api/admin/calendar/events?from=${from}&to=${to}`).then(r=>r.json());
+  } catch { _miniCalEvents = []; }
+  document.getElementById('opCalLabel').textContent = `${_opCalThMonths[m]} ${y+543}`;
+  renderOpCalGrid();
+}
+
+function opCalNav(delta) {
+  _opCalMonth += delta;
+  if (_opCalMonth < 0) { _opCalMonth = 11; _opCalYear--; }
+  else if (_opCalMonth > 11) { _opCalMonth = 0; _opCalYear++; }
+  _miniCalDay = null;
+  loadUpcomingTasks();
+}
+function opCalToday() {
+  const t = new Date();
+  _opCalYear = t.getFullYear(); _opCalMonth = t.getMonth();
+  _miniCalDay = t.toISOString().slice(0,10);
+  loadUpcomingTasks();
+}
+
+function renderOpCalGrid() {
+  const todayStr = new Date().toISOString().slice(0,10);
+  const evMap = {};
+  _miniCalEvents.forEach(e => { (evMap[e.event_date] = evMap[e.event_date] || []).push(e); });
+
+  const y = _opCalYear, m = _opCalMonth;
+  const firstDow = new Date(y, m, 1).getDay(); // 0=Sun
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const cells = [];
+
+  // leading blanks
+  for (let i=0; i<firstDow; i++) cells.push('<div class="aspect-square"></div>');
+
+  for (let day=1; day<=lastDay; day++) {
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const evs = evMap[ds] || [];
+    const isToday = ds === todayStr;
+    const isSel = ds === _miniCalDay;
+    const hasMaint = evs.some(e => e.event_type === 'maintenance');
+    const hasBill = evs.some(e => e.event_type === 'bill' || e.event_type === 'reminder');
+    const hasContract = evs.some(e => e.event_type === 'contract' || e.event_type === 'contract_expiry');
+
+    const dots = [];
+    if (hasMaint) dots.push('bg-orange-400');
+    if (hasBill) dots.push('bg-blue-400');
+    if (hasContract) dots.push('bg-purple-400');
+    if (!dots.length && evs.length) dots.push('bg-gray-300');
+
+    cells.push(`<div onclick="selectMiniDay('${ds}')"
+      class="aspect-square rounded-lg p-1 text-center cursor-pointer transition flex flex-col items-center justify-start
+      ${isSel ? 'bg-line text-white shadow-md' : isToday ? 'bg-line/10 ring-1 ring-line/40 text-line' : 'hover:bg-gray-50 text-gray-700'}"
+      title="${ds}${evs.length?` • ${evs.length} กิจกรรม`:''}">
+      <span class="text-xs font-bold mt-0.5">${day}</span>
+      <div class="flex gap-0.5 mt-auto mb-0.5">
+        ${dots.slice(0,3).map(c => `<span class="w-1.5 h-1.5 rounded-full ${isSel?'bg-white':c}"></span>`).join('')}
+      </div>
+    </div>`);
+  }
+
+  // trailing blanks to complete week
+  while (cells.length % 7 !== 0) cells.push('<div class="aspect-square"></div>');
+
+  document.getElementById('opCalGrid').innerHTML = cells.join('');
+
+  // refresh selected day events panel
+  if (_miniCalDay) selectMiniDay(_miniCalDay, /*skipRender*/true);
+}
+
+function selectMiniDay(ds, skipRender) {
+  _miniCalDay = ds;
+  if (!skipRender) renderOpCalGrid();
+  const evs = _miniCalEvents.filter(e => e.event_date === ds);
+  const container = document.getElementById('miniCalEvents');
+  if (!evs.length) {
+    container.innerHTML = '<p class="text-xs text-gray-400 text-center py-2">ไม่มีกิจกรรมวันนี้ 🎉</p>';
+    return;
+  }
+  const typeColor = { maintenance:'bg-orange-50 border-orange-200 text-orange-800', bill:'bg-blue-50 border-blue-200 text-blue-800', reminder:'bg-amber-50 border-amber-200 text-amber-800', contract:'bg-purple-50 border-purple-200 text-purple-800', contract_expiry:'bg-purple-50 border-purple-200 text-purple-800' };
+  container.innerHTML = `<p class="text-xs font-semibold text-gray-500 mb-1">วันที่ ${ds}</p>` + evs.map(e => {
+    const cls = typeColor[e.event_type] || 'bg-gray-50 border-gray-200 text-gray-700';
+    return `<div class="flex items-center gap-3 p-2.5 rounded-xl border ${cls}">
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-semibold truncate">${e.title}</p>
+        ${e.room_code ? `<p class="text-[10px] opacity-70">ห้อง ${e.room_code}</p>` : ''}
+      </div>
+      ${e.event_time ? `<span class="text-[10px] opacity-70 flex-shrink-0">${e.event_time}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// แจ้งออก (Move-out Notice)
+// ============================================================
+function openMoveOutModal() {
+  if (!currentRoomDetail) return;
+  document.getElementById('moveOutRoomLabel').textContent = `ห้อง ${currentRoomDetail.room_code || currentRoomDetail.room_number} — ${currentRoomDetail.tenant_name || ''}`;
+  // Set default date to 30 days from now
+  const d = new Date(); d.setDate(d.getDate() + 30);
+  document.getElementById('moveOutDate').value = d.toISOString().slice(0,10);
+  document.getElementById('moveOutNote').value = '';
+  document.getElementById('moveOutModal').style.display = 'flex';
+}
+async function submitMoveOut() {
+  const date = document.getElementById('moveOutDate').value;
+  const note = document.getElementById('moveOutNote').value.trim();
+  if (!date) return alert('กรุณาเลือกวันที่ย้ายออก');
+  if (!currentRoomDetail) return;
+  try {
+    const r = await fetch(`/api/admin/operator/rooms/${currentRoomDetail.id}/move-out-notice`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ move_out_date: date, note })
+    }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    document.getElementById('moveOutModal').style.display = 'none';
+    alert(`✅ บันทึกการแจ้งออกแล้ว — กำหนดออก ${date}`);
+    await openRoom(currentRoomDetail.id);
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ============================================================
+// ต่อสัญญา (Contract Renewal)
+// ============================================================
+function setRenewMonths(m) {
+  document.getElementById('renewMonths').value = m;
+  document.querySelectorAll('.renew-m-btn').forEach(b => {
+    const isMe = parseInt(b.dataset.m) === m;
+    b.className = `renew-m-btn py-2.5 rounded-xl border-2 text-sm font-bold transition ${isMe?'border-line bg-line/10 text-line':'border-gray-200 hover:border-line'}`;
+  });
+}
+function openRenewModal() {
+  if (!currentRoomDetail) return;
+  document.getElementById('renewRoomLabel').textContent = `ห้อง ${currentRoomDetail.room_code || currentRoomDetail.room_number} — ${currentRoomDetail.tenant_name || ''}`;
+  document.getElementById('renewMonths').value = '';
+  document.getElementById('renewRent').value = '';
+  document.querySelectorAll('.renew-m-btn').forEach(b => b.className = 'renew-m-btn py-2.5 rounded-xl border-2 border-gray-200 text-sm font-bold hover:border-line transition');
+  document.getElementById('renewModal').style.display = 'flex';
+}
+async function submitRenew() {
+  const months = parseInt(document.getElementById('renewMonths').value);
+  const newRent = parseFloat(document.getElementById('renewRent').value) || null;
+  if (!months || months < 1) return alert('กรุณากรอกจำนวนเดือนที่ต้องการต่อ');
+  if (!currentRoomDetail) return;
+  try {
+    const r = await fetch(`/api/admin/operator/rooms/${currentRoomDetail.id}/renew-contract`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ months, new_rent: newRent })
+    }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    document.getElementById('renewModal').style.display = 'none';
+    alert(`✅ ต่อสัญญาแล้ว ${months} เดือน — สิ้นสุดใหม่ ${r.new_end_date}`);
+    await openRoom(currentRoomDetail.id);
+  } catch(e) { alert('❌ ' + e.message); }
+}
+</script>
+</body>
+</html>

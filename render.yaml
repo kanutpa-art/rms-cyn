@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: rms-cyn
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: node scripts/seed.js && node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: NODE_ENV
+        value: production
+      - key: BASE_PATH
+        value: /RMS
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_NAME
+        value: แอดมิน
+      - key: ADMIN_EMAIL
+        value: admin@cyn-jewelry.com
+      - key: ADMIN_PASSWORD
+        value: changeme123
+      - key: DORMITORY_NAME
+        value: หอพักทดสอบ

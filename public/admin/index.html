@@ -1,0 +1,2891 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMS Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>tailwind.config={theme:{extend:{colors:{line:'#06C755','line-dark':'#059142'},fontFamily:{sans:['Prompt','sans-serif']}}}}</script>
+<style>
+  body{font-family:'Prompt',sans-serif}
+  .page{display:none}.page.active{display:block}
+  .nav-link.active{background:#f0fdf4;color:#06C755;font-weight:600}
+  .badge-pending{background:#fef3c7;color:#d97706}
+  .badge-paid{background:#d1fae5;color:#059669}
+  .wysiwyg-btn{width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:#374151;font-size:16px;transition:all .1s}
+  .wysiwyg-btn:hover{background:#e5e7eb}
+  .badge-reviewing{background:#dbeafe;color:#2563eb}
+  .badge-overdue{background:#fee2e2;color:#dc2626}
+  .badge-occupied{background:#d1fae5;color:#059669}
+  .badge-vacant{background:#f3f4f6;color:#6b7280}
+  .badge-active{background:#d1fae5;color:#059669}
+  .badge-draft{background:#f3f4f6;color:#6b7280}
+  .badge-expired{background:#fee2e2;color:#dc2626}
+  .badge-terminated{background:#fef3c7;color:#d97706}
+  .fade-in{animation:fadeIn .2s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .input{width:100%;border:1px solid #e5e7eb;border-radius:.75rem;padding:.625rem 1rem;font-size:.875rem;outline:none;font-family:'Prompt',sans-serif}
+  .input:focus{border-color:#06C755;box-shadow:0 0 0 3px rgba(6,199,85,.15)}
+  .label{display:block;font-size:.8rem;font-weight:500;color:#374151;margin-bottom:.25rem}
+  .btn-primary{background:#06C755;color:white;padding:.625rem 1.25rem;border-radius:.75rem;font-size:.875rem;font-weight:600;border:none;cursor:pointer;transition:background .2s}
+  .btn-primary:hover{background:#059142}
+</style>
+</head>
+<body class="bg-gray-50 h-screen flex overflow-hidden text-gray-800">
+
+<!-- LOGIN -->
+<div id="loginPage" class="fixed inset-0 bg-gradient-to-br from-line to-green-700 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 bg-line rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="ph-fill ph-buildings text-white text-3xl"></i></div>
+      <h1 class="text-2xl font-bold text-gray-900">RMS Admin</h1>
+      <p class="text-gray-500 text-sm mt-1">ระบบจัดการหอพัก</p>
+    </div>
+    <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm"></div>
+    <form id="loginForm" class="space-y-4">
+      <div><label class="label">Email</label><input type="email" id="loginEmail" class="input" placeholder="admin@example.com"></div>
+      <div><label class="label">Password</label><input type="password" id="loginPassword" class="input" placeholder="••••••••"></div>
+      <button type="submit" class="w-full bg-line text-white py-3 rounded-xl font-semibold hover:bg-line-dark transition">เข้าสู่ระบบ</button>
+    </form>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar" class="hidden w-64 bg-white border-r border-gray-100 flex flex-col shadow-sm z-20 flex-shrink-0">
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-line rounded-xl flex items-center justify-center"><i class="ph-fill ph-buildings text-white text-xl"></i></div>
+      <div><h1 class="text-base font-bold text-gray-900" id="dormName">RMS</h1><p class="text-xs text-gray-400" id="adminName">Loading...</p></div>
+    </div>
+  </div>
+  <!-- Quick switch to Operator -->
+  <div class="px-4 py-3 border-b border-gray-100">
+    <a href="/operator" target="_blank" class="flex items-center justify-center gap-2 bg-line/10 hover:bg-line/20 text-line py-2.5 rounded-xl text-sm font-bold transition">
+      <i class="ph-fill ph-monitor"></i>เปิด Operator Mode
+    </a>
+  </div>
+
+  <nav class="flex-1 py-4 overflow-y-auto">
+    <div class="px-4 mb-2 text-xs font-bold text-gray-400 uppercase">เมนูหลัก</div>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="dashboard"><i class="ph ph-squares-four"></i>ภาพรวม</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="rooms"><i class="ph ph-door"></i>ห้องพัก<span id="navRoomBadge" class="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full"></span></a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="billing"><i class="ph ph-receipt"></i>ออกบิล</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="payments"><i class="ph ph-file-image"></i>ตรวจสลิป<span id="navSlipBadge" class="ml-auto text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-semibold hidden"></span></a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="maintenance"><i class="ph ph-wrench"></i>แจ้งซ่อม<span id="navMaintBadge" class="ml-auto text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold hidden"></span></a>
+    <div class="px-4 mt-5 mb-2 text-xs font-bold text-gray-400 uppercase">การเงิน & สัญญา</div>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="collection"><i class="ph ph-warning-octagon"></i>ตามหนี้<span id="navOverdueBadge" class="ml-auto text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold hidden"></span></a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="contracts"><i class="ph ph-file-text"></i>สัญญาเช่า</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="finance"><i class="ph ph-wallet"></i>รายรับ-รายจ่าย</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="analytics"><i class="ph ph-chart-line-up"></i>Analytics</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="tax"><i class="ph ph-file-magnifying-glass"></i>รายงานภาษี</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="bank"><i class="ph ph-bank"></i>กระทบยอดธนาคาร</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="ownerstmt"><i class="ph ph-receipt-x"></i>Owner Statement</a>
+    <div class="px-4 mt-5 mb-2 text-xs font-bold text-gray-400 uppercase">ปฏิบัติการ</div>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="calendar"><i class="ph ph-calendar"></i>ปฏิทิน</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="inspections"><i class="ph ph-clipboard-text"></i>ตรวจรับ-ตรวจคืนห้อง</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="assets"><i class="ph ph-cube"></i>ทรัพย์สินในห้อง</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="vendors"><i class="ph ph-toolbox"></i>ผู้รับเหมา/ช่าง</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="moveout"><i class="ph ph-door-open"></i>คำขอย้ายออก<span id="navMoveOutBadge" class="ml-auto text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold hidden"></span></a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="blacklist"><i class="ph ph-prohibit"></i>Blacklist</a>
+    <div class="px-4 mt-5 mb-2 text-xs font-bold text-gray-400 uppercase">ตั้งค่า</div>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="properties"><i class="ph ph-buildings"></i>หลายหอพัก</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition owner-only" data-page="admins"><i class="ph ph-users-three"></i>จัดการผู้ดูแล</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="setup"><i class="ph ph-wrench"></i>Setup Wizard <span id="setupBadge" class="ml-auto text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 hidden">!</span></a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="settings"><i class="ph ph-gear"></i>ตั้งค่าระบบ</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="charges"><i class="ph ph-coin"></i>ค่ามัดจำ & รายการเก็บ</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition owner-only" data-page="license"><i class="ph ph-certificate"></i>License & กำหนดชำระ</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="prorate"><i class="ph ph-calculator"></i>คิดค่าเช่าเดือนแรก</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition owner-only" data-page="operatorperms"><i class="ph ph-shield-check"></i>สิทธิ์ Operator</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="line-features"><i class="ph ph-chat-circle-dots"></i>LINE Rich Menu + ประกาศ</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="account"><i class="ph ph-user-circle"></i>บัญชี + LINE</a>
+  </nav>
+  <div class="p-4 border-t border-gray-100">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition"><i class="ph ph-sign-out"></i>ออกจากระบบ</button>
+  </div>
+</div>
+
+<div id="mainContent" class="hidden flex-1 flex flex-col h-full overflow-y-auto bg-gray-50">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active p-8 fade-in">
+    <div class="flex justify-between items-center mb-8">
+      <div><h2 class="text-2xl font-bold text-gray-900">ภาพรวม</h2><p class="text-gray-400 text-sm mt-1" id="dashMonth"></p></div>
+      <button onclick="loadDashboard()" class="flex items-center gap-2 text-sm text-gray-500 hover:text-line"><i class="ph ph-arrows-clockwise"></i>รีเฟรช</button>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="statsGrid"></div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="font-bold text-gray-900 flex items-center gap-2"><i class="ph-fill ph-file-image text-line"></i>สลิปรอตรวจสอบ</h3>
+        <a href="#" onclick="navigate('payments')" class="text-sm text-line hover:underline">ดูทั้งหมด →</a>
+      </div>
+      <div id="pendingSlipsList" class="divide-y divide-gray-50"></div>
+    </div>
+  </div>
+
+  <!-- ROOMS -->
+  <div id="page-rooms" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ห้องพัก</h2>
+      <button onclick="openAddRoom()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มห้อง</button>
+    </div>
+    <div id="buildingsCatalog" class="space-y-6"></div>
+  </div>
+
+  <!-- BILLING -->
+  <div id="page-billing" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">ออกบิลประจำเดือน</h2>
+
+    <!-- Billing mode toggle -->
+    <div class="flex gap-2 mb-4">
+      <button onclick="setBillingMode('all')" id="bmAll" class="px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-line text-white">
+        <i class="ph ph-buildings"></i> ออกบิลทุกห้อง
+      </button>
+      <button onclick="setBillingMode('single')" id="bmSingle" class="px-5 py-2.5 rounded-xl text-sm font-semibold transition bg-gray-100 text-gray-700 hover:bg-gray-200">
+        <i class="ph ph-door"></i> ออกบิลทีละห้อง
+      </button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="grid grid-cols-3 gap-4 mb-4">
+        <div><label class="label">เดือนที่ออกบิล</label><input type="month" id="billingMonth" class="input"></div>
+        <div><label class="label">กำหนดชำระภายใน</label><input type="date" id="billingDueDate" class="input"></div>
+        <div class="flex items-end" id="billingLoadBtn">
+          <button onclick="loadBillingRooms()" class="w-full bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200">โหลดห้องพัก</button>
+        </div>
+      </div>
+      <!-- Single room selector (hidden by default) -->
+      <div id="singleRoomRow" class="hidden">
+        <label class="label">เลือกห้อง</label>
+        <select id="singleRoomSelect" class="input" onchange="loadSingleRoom()">
+          <option value="">— เลือกห้อง —</option>
+        </select>
+      </div>
+    </div>
+    <div id="billingTable"></div>
+  </div>
+
+  <!-- PAYMENTS -->
+  <div id="page-payments" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ตรวจสอบสลิป</h2>
+      <div class="flex gap-2">
+        <button onclick="loadPayments('pending')" id="filterPending" class="px-4 py-2 rounded-xl text-sm font-medium bg-orange-100 text-orange-700">รอตรวจ</button>
+        <button onclick="loadPayments('approved')" id="filterApproved" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">อนุมัติแล้ว</button>
+        <button onclick="loadPayments('rejected')" id="filterRejected" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">ปฏิเสธแล้ว</button>
+      </div>
+    </div>
+    <div id="paymentsList" class="space-y-3"></div>
+  </div>
+
+  <!-- MAINTENANCE -->
+  <div id="page-maintenance" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">แจ้งซ่อม</h2>
+    <div class="flex gap-2 mb-6">
+      <button onclick="loadMaintenance('pending')" class="px-4 py-2 rounded-xl text-sm font-medium bg-yellow-100 text-yellow-700">รอดำเนินการ</button>
+      <button onclick="loadMaintenance('in_progress')" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-100 text-blue-700">กำลังดำเนินการ</button>
+      <button onclick="loadMaintenance('completed')" class="px-4 py-2 rounded-xl text-sm font-medium bg-green-100 text-green-700">เสร็จแล้ว</button>
+      <button onclick="loadMaintenance()" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">ทั้งหมด</button>
+    </div>
+    <div id="maintenanceList" class="space-y-3"></div>
+  </div>
+
+  <!-- COLLECTION -->
+  <div id="page-collection" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ตามหนี้</h2>
+      <button onclick="runCollection()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-paper-plane-tilt"></i>ส่งแจ้งเตือนตอนนี้</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-6">
+      <button onclick="showCollectionTab('overdue')" id="ctab-overdue" class="px-4 py-2 rounded-xl text-sm font-medium bg-line text-white">บิลค้างชำระ</button>
+      <button onclick="showCollectionTab('policy')" id="ctab-policy" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">นโยบายติดตามหนี้</button>
+      <button onclick="showCollectionTab('logs')" id="ctab-logs" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">ประวัติการแจ้งเตือน</button>
+    </div>
+
+    <!-- Overdue list -->
+    <div id="ctab-content-overdue">
+      <div id="overdueList" class="space-y-3"></div>
+    </div>
+
+    <!-- Policy form -->
+    <div id="ctab-content-policy" class="hidden">
+      <form id="policyForm" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h3 class="font-bold text-gray-900 mb-2 flex items-center gap-2"><i class="ph-fill ph-shield-check text-line"></i>นโยบายติดตามหนี้</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="label">ผ่อนผัน (วันหลังครบกำหนด)</label><input name="grace_period_days" type="number" class="input"></div>
+          <div><label class="label">เปิดใช้งานระบบ</label>
+            <select name="enabled" class="input"><option value="1">เปิด</option><option value="0">ปิด</option></select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <div><label class="label">ประเภทค่าปรับ</label>
+            <select name="late_fee_type" class="input"><option value="percentage">เปอร์เซ็นต์</option><option value="fixed">คงที่ (บาท)</option><option value="none">ไม่มี</option></select>
+          </div>
+          <div><label class="label">ค่า (% หรือ ฿)</label><input name="late_fee_value" type="number" step="0.5" class="input"></div>
+          <div><label class="label">ค่าปรับสูงสุด (0 = ไม่จำกัด)</label><input name="late_fee_max" type="number" step="0.5" class="input"></div>
+        </div>
+
+        <h4 class="font-semibold text-gray-700 pt-3 border-t border-gray-100">ขั้นที่ 1 — แจ้งเตือนนุ่มนวล</h4>
+        <div class="grid grid-cols-4 gap-4">
+          <div><label class="label">หลังครบกำหนด (วัน)</label><input name="reminder1_day" type="number" class="input"></div>
+          <div class="col-span-3"><label class="label">ข้อความ (ใช้ {month} {room} {total} {late_fee} {days})</label><textarea name="reminder1_template" class="input h-20"></textarea></div>
+        </div>
+
+        <h4 class="font-semibold text-gray-700 pt-3 border-t border-gray-100">ขั้นที่ 2 — แจ้งเตือนซ้ำ + ค่าปรับ</h4>
+        <div class="grid grid-cols-4 gap-4">
+          <div><label class="label">หลังครบกำหนด (วัน)</label><input name="reminder2_day" type="number" class="input"></div>
+          <div class="col-span-3"><label class="label">ข้อความ</label><textarea name="reminder2_template" class="input h-20"></textarea></div>
+        </div>
+
+        <h4 class="font-semibold text-gray-700 pt-3 border-t border-gray-100">ขั้นที่ 3 — หนังสือแจ้งเตือนทางการ</h4>
+        <div class="grid grid-cols-4 gap-4">
+          <div><label class="label">หลังครบกำหนด (วัน)</label><input name="formal_notice_day" type="number" class="input"></div>
+          <div class="col-span-3"><label class="label">ข้อความ</label><textarea name="formal_notice_template" class="input h-20"></textarea></div>
+        </div>
+
+        <h4 class="font-semibold text-gray-700 pt-3 border-t border-gray-100">ขั้นที่ 4 — ผิดสัญญา (Escalation)</h4>
+        <div class="grid grid-cols-4 gap-4">
+          <div><label class="label">หลังครบกำหนด (วัน)</label><input name="escalation_day" type="number" class="input"></div>
+          <div class="col-span-3"><label class="label">ข้อความ</label><textarea name="escalation_template" class="input h-20"></textarea></div>
+        </div>
+        <div>
+          <label class="label">การกระทำเพิ่มเติม (escalation actions — เลือกได้หลายอย่าง)</label>
+          <div class="flex flex-wrap gap-3 text-sm">
+            <label class="flex items-center gap-2"><input type="checkbox" class="esc-action" value="notify_admin">แจ้ง Admin ทาง LINE</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="esc-action" value="suspend_access">ระงับสิทธิเข้าใช้แอป</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="esc-action" value="deduct_deposit">หักจากเงินประกัน</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="esc-action" value="generate_termination">สร้างหนังสือบอกเลิกสัญญา</label>
+          </div>
+          <input type="hidden" name="escalation_actions" id="escalation_actions">
+        </div>
+        <button type="submit" class="btn-primary">บันทึกนโยบาย</button>
+      </form>
+    </div>
+
+    <!-- Logs -->
+    <div id="ctab-content-logs" class="hidden">
+      <div id="collectionLogsList" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- CONTRACTS -->
+  <div id="page-contracts" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">สัญญาเช่า</h2>
+      <div class="flex gap-2">
+        <button onclick="openTemplateEditor()" class="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 flex items-center gap-2"><i class="ph ph-note-pencil"></i>แก้ไข Template</button>
+        <button onclick="openContractModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-plus"></i>ร่างสัญญาใหม่</button>
+      </div>
+    </div>
+    <div id="contractsList" class="space-y-3"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="page-settings" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">ตั้งค่าระบบ</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-buildings text-line"></i>ข้อมูลหอพัก</h3>
+        <form id="dormForm" class="space-y-4">
+          <div><label class="label">ชื่อหอพัก</label><input name="name" class="input" required></div>
+          <div><label class="label">ที่อยู่</label><input name="address" class="input"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">เบอร์พร้อมเพย์</label><input name="promptpay_number" class="input" placeholder="081xxxxxxx"></div>
+            <div><label class="label">ชื่อบัญชี</label><input name="promptpay_name" class="input"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">ค่าน้ำ (฿/หน่วย)</label><input name="water_rate" type="number" step="0.5" class="input"></div>
+            <div><label class="label">ค่าไฟ (฿/หน่วย)</label><input name="electric_rate" type="number" step="0.5" class="input"></div>
+          </div>
+          <button type="submit" class="btn-primary w-full">บันทึกข้อมูลหอพัก</button>
+        </form>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-chat-teardrop-text text-line"></i>LINE Integration</h3>
+        <form id="lineForm" class="space-y-4">
+          <div><label class="label">LINE Channel ID</label><input name="line_channel_id" class="input"></div>
+          <div><label class="label">LINE Channel Secret</label><input name="line_channel_secret" class="input" type="password"></div>
+          <div><label class="label">LINE Channel Access Token</label><textarea name="line_channel_access_token" class="input h-20 resize-none"></textarea></div>
+          <div><label class="label">LIFF ID</label><input name="liff_id" class="input"></div>
+          <button type="submit" class="btn-primary w-full">บันทึก LINE Config</button>
+        </form>
+        <div class="mt-4 p-4 bg-gray-50 rounded-xl">
+          <p class="text-xs text-gray-500 font-medium mb-1">Webhook URL:</p>
+          <code id="webhookUrl" class="text-xs text-line break-all"></code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <div id="page-account" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">บัญชี & LINE Link</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-link text-line"></i>ผูก LINE กับบัญชีแอดมิน</h3>
+        <p class="text-sm text-gray-500 mb-4">เมื่อผูก LINE แล้ว สามารถสั่งงานระบบผ่าน LINE chat ได้ — เช่น "สร้างลิงค์ห้อง A307", "สรุปค้างชำระ", "ตามหนี้ห้อง B202"</p>
+        <div id="lineLinkStatus" class="bg-gray-50 rounded-xl p-4 mb-4"></div>
+        <button onclick="generateAdminLinkToken()" id="genLinkBtn" class="btn-primary w-full">สร้างลิงก์เพื่อผูก LINE</button>
+        <div id="adminLinkResult" class="hidden mt-4 p-4 bg-line/5 border border-line/20 rounded-xl">
+          <p class="text-sm font-medium text-gray-700 mb-2">เปิดลิงก์นี้ใน LINE chat ของคุณ (ใช้ได้ภายใน 30 นาที):</p>
+          <p id="adminLinkUrl" class="text-sm text-line break-all font-medium mb-3"></p>
+          <button onclick="copyAdminLink()" class="text-xs bg-white border border-line text-line px-3 py-1.5 rounded-lg">คัดลอก</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-key text-line"></i>เปลี่ยนรหัสผ่าน</h3>
+        <form id="passwordForm" class="space-y-4">
+          <div><label class="label">รหัสผ่านปัจจุบัน</label><input name="current_password" type="password" class="input" required></div>
+          <div><label class="label">รหัสผ่านใหม่</label><input name="new_password" type="password" class="input" required minlength="6"></div>
+          <button type="submit" class="btn-primary w-full">เปลี่ยนรหัสผ่าน</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-6">
+      <h3 class="font-bold text-gray-900 mb-3 flex items-center gap-2"><i class="ph-fill ph-info text-line"></i>คำสั่งสำหรับแอดมินใน LINE</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <div class="bg-gray-50 rounded-xl p-3"><p class="font-medium">สร้างลิงค์ห้อง A307</p><p class="text-xs text-gray-500">→ สร้าง invite link ส่งกลับทันที</p></div>
+        <div class="bg-gray-50 rounded-xl p-3"><p class="font-medium">ห้อง A307 ค้างชำระไหม</p><p class="text-xs text-gray-500">→ แสดงสถานะบิลล่าสุด</p></div>
+        <div class="bg-gray-50 rounded-xl p-3"><p class="font-medium">ตามหนี้ห้อง A307</p><p class="text-xs text-gray-500">→ ส่งข้อความเตือนทันที</p></div>
+        <div class="bg-gray-50 rounded-xl p-3"><p class="font-medium">สรุปค้างชำระ</p><p class="text-xs text-gray-500">→ รายงานบิลค้างทั้งหมด</p></div>
+        <div class="bg-gray-50 rounded-xl p-3"><p class="font-medium">help</p><p class="text-xs text-gray-500">→ ดูคำสั่งทั้งหมด</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINANCE -->
+  <div id="page-finance" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">รายรับ-รายจ่าย</h2>
+      <button onclick="openTxModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มรายการ</button>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="grid grid-cols-4 gap-4">
+        <div><label class="label">ตั้งแต่</label><input id="fnFrom" type="date" class="input"></div>
+        <div><label class="label">ถึง</label><input id="fnTo" type="date" class="input"></div>
+        <div><label class="label">ประเภท</label><select id="fnType" class="input"><option value="">ทั้งหมด</option><option value="income">รายรับ</option><option value="expense">รายจ่าย</option></select></div>
+        <div class="flex items-end"><button onclick="loadFinance()" class="w-full bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-semibold">ค้นหา</button></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-4 mb-6" id="financeStats"></div>
+    <div id="financeList" class="space-y-2"></div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div id="page-analytics" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
+      <select id="analyticsYear" onchange="loadAnalytics()" class="input w-32"></select>
+    </div>
+    <div class="grid grid-cols-4 gap-4 mb-6" id="analyticsKPI"></div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h3 class="font-bold text-gray-900 mb-4">รายรับ-รายจ่าย รายเดือน</h3>
+      <div id="monthlyChart" class="space-y-2"></div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h3 class="font-bold text-gray-900 mb-4">หมวดค่าใช้จ่ายสูงสุด</h3>
+      <div id="topExpense" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- TAX -->
+  <div id="page-tax" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">รายงานภาษี</h2>
+      <select id="taxYear" onchange="loadTax()" class="input w-32"></select>
+    </div>
+    <div id="taxReport"></div>
+  </div>
+
+  <!-- BANK -->
+  <div id="page-bank" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">กระทบยอดธนาคาร</h2>
+      <div class="flex gap-2">
+        <button onclick="openImportBankModal()" class="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-upload-simple"></i>นำเข้า Statement</button>
+        <button onclick="autoMatchBank()" class="bg-line text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-magic-wand"></i>จับคู่อัตโนมัติ</button>
+      </div>
+    </div>
+    <div id="bankList" class="space-y-2"></div>
+  </div>
+
+  <!-- OWNER STATEMENT -->
+  <div id="page-ownerstmt" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Owner Statement</h2>
+      <div class="flex gap-2">
+        <select id="ownerYear" onchange="loadOwnerStmt()" class="input w-32"></select>
+        <select id="ownerMonth" onchange="loadOwnerStmt()" class="input w-32"></select>
+      </div>
+    </div>
+    <div id="ownerStmtView"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div id="page-calendar" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold text-gray-900">📅 ปฏิทิน</h2>
+      <div class="flex gap-2">
+        <button onclick="generateReminders()" class="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200"><i class="ph ph-magic-wand"></i> Auto reminders</button>
+        <button onclick="openEventModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มกิจกรรม</button>
+      </div>
+    </div>
+
+    <!-- View toggle + Month nav -->
+    <div class="flex items-center justify-between mb-4 bg-white rounded-2xl border border-gray-100 px-5 py-3">
+      <div class="flex items-center gap-2">
+        <button onclick="calNav(-1)" class="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><i class="ph ph-caret-left"></i></button>
+        <h3 class="font-bold text-gray-800 min-w-[140px] text-center" id="calMonthLabel"></h3>
+        <button onclick="calNav(+1)" class="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center"><i class="ph ph-caret-right"></i></button>
+        <button onclick="calGoToday()" class="ml-2 text-xs px-3 py-1.5 bg-line/10 text-line rounded-lg font-semibold hover:bg-line/20">วันนี้</button>
+      </div>
+      <div class="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <button onclick="setCalView('grid')" id="calViewGrid" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition"><i class="ph ph-calendar-blank"></i> ตาราง</button>
+        <button onclick="setCalView('list')" id="calViewList" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition"><i class="ph ph-list-bullets"></i> รายการ</button>
+      </div>
+    </div>
+
+    <!-- Calendar grid -->
+    <div id="calGridView">
+      <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <div class="grid grid-cols-7 border-b border-gray-100">
+          <div class="py-3 text-center text-xs font-bold text-red-400">อา</div>
+          <div class="py-3 text-center text-xs font-bold text-gray-500">จ</div>
+          <div class="py-3 text-center text-xs font-bold text-gray-500">อ</div>
+          <div class="py-3 text-center text-xs font-bold text-gray-500">พ</div>
+          <div class="py-3 text-center text-xs font-bold text-gray-500">พฤ</div>
+          <div class="py-3 text-center text-xs font-bold text-gray-500">ศ</div>
+          <div class="py-3 text-center text-xs font-bold text-blue-400">ส</div>
+        </div>
+        <div class="grid grid-cols-7" id="calGrid"></div>
+      </div>
+    </div>
+
+    <!-- List view -->
+    <div id="calListView" class="hidden space-y-2"></div>
+  </div>
+
+  <!-- INSPECTIONS -->
+  <div id="page-inspections" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ตรวจรับ-ตรวจคืนห้อง</h2>
+      <button onclick="openInspectionModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>บันทึกการตรวจ</button>
+    </div>
+    <div id="inspectionsList" class="space-y-3"></div>
+  </div>
+
+  <!-- ASSETS -->
+  <div id="page-assets" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ทรัพย์สินในห้อง</h2>
+      <button onclick="openAssetModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มทรัพย์สิน</button>
+    </div>
+    <div id="assetsList" class="space-y-2"></div>
+  </div>
+
+  <!-- VENDORS -->
+  <div id="page-vendors" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ผู้รับเหมา / ช่าง</h2>
+      <button onclick="openVendorModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มผู้รับเหมา</button>
+    </div>
+    <div id="vendorsList" class="space-y-3"></div>
+  </div>
+
+  <!-- MOVE-OUT -->
+  <div id="page-moveout" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">คำขอย้ายออก</h2>
+    <div id="moveOutList" class="space-y-3"></div>
+  </div>
+
+  <!-- BLACKLIST -->
+  <div id="page-blacklist" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Blacklist</h2>
+      <button onclick="openBlacklistModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มรายชื่อ</button>
+    </div>
+    <div id="blacklistList" class="space-y-2"></div>
+  </div>
+
+  <!-- SETUP WIZARD -->
+  <div id="page-setup" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">🛠️ Setup Wizard</h2>
+    <p class="text-gray-500 text-sm mb-6">ตั้งค่าระบบให้ครบก่อนเริ่มใช้งานหน้า Operator (User mode)</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold">ความคืบหน้า</h3>
+        <span id="setupProgress" class="text-2xl font-bold text-line">0%</span>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div id="setupBar" class="bg-line h-full transition-all" style="width:0%"></div></div>
+    </div>
+    <div id="setupSteps" class="space-y-3"></div>
+    <div id="setupCta" class="mt-6 hidden">
+      <button onclick="markSetupDone()" class="w-full bg-line text-white py-4 rounded-2xl font-bold text-base hover:bg-line-dark">✅ ยืนยันการตั้งค่าเสร็จสมบูรณ์ → เปิดใช้ Operator Mode</button>
+    </div>
+  </div>
+
+  <!-- CHARGES -->
+  <div id="page-charges" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">💰 ค่ามัดจำ & รายการเก็บ</h2>
+        <p class="text-sm text-gray-400 mt-1">กำหนดค่ามัดจำห้อง / กุญแจ / รายการประจำเดือน / ค่าธรรมเนียมอื่นๆ</p>
+      </div>
+      <button onclick="openChargeModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มรายการ</button>
+    </div>
+    <div class="grid grid-cols-3 gap-2 mb-6">
+      <button onclick="loadCharges('deposit')" id="ctype-deposit" class="px-4 py-2 rounded-xl text-sm font-medium bg-line text-white">มัดจำ</button>
+      <button onclick="loadCharges('recurring')" id="ctype-recurring" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">รายเดือน</button>
+      <button onclick="loadCharges('onetime')" id="ctype-onetime" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-700">ครั้งเดียว</button>
+    </div>
+    <div id="chargesList" class="space-y-2"></div>
+  </div>
+
+  <!-- LICENSE -->
+  <div id="page-license" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">📜 License & กำหนดชำระ</h2>
+    <p class="text-sm text-gray-500 mb-6">กำหนดจำนวนห้องสูงสุด, วันที่ชำระค่าเช่า, และเปิด/ปิดการคิดค่าเช่าเฉลี่ย</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="licenseStats"></div>
+
+    <form id="licenseForm" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+      <div>
+        <label class="label">โควต้าห้องสูงสุด (License)</label>
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-4">
+          <span class="text-3xl font-bold text-gray-900" id="quotaDisplay">—</span>
+          <div>
+            <p class="text-sm font-medium text-gray-700">ห้อง</p>
+            <p class="text-xs text-gray-400">กำหนดโดยผู้ดูแลระบบ — ติดต่อผู้ให้บริการเพื่ออัปเกรด</p>
+          </div>
+          <div class="ml-auto"><span class="text-xs bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full flex items-center gap-1"><i class="ph ph-lock"></i> อ่านอย่างเดียว</span></div>
+        </div>
+      </div>
+      <div class="border-t pt-4">
+        <label class="label">วันที่ชำระค่าเช่า (ทุกเดือน)</label>
+        <div class="flex items-center gap-3">
+          <input type="number" name="rent_due_day" min="1" max="31" class="input w-32" required>
+          <span class="text-sm text-gray-500">ของเดือน</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">เช่น 5 = ทุกวันที่ 5 ของเดือน • ใช้เป็นค่าเริ่มต้นในการสร้างบิลและสัญญา</p>
+      </div>
+      <div class="border-t pt-4">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="rent_proration_enabled" id="prorEnable" class="w-5 h-5">
+          <div>
+            <p class="font-semibold">คิดค่าเช่าเฉลี่ยเดือนแรก (Pro-rate)</p>
+            <p class="text-xs text-gray-500">เมื่อลูกบ้านเข้าอยู่ไม่ครบเดือน ระบบจะคิดค่าเช่าตามจำนวนวันที่อยู่จริง</p>
+          </div>
+        </label>
+      </div>
+      <button type="submit" class="btn-primary w-full">บันทึก License</button>
+    </form>
+  </div>
+
+  <!-- PRORATE CALCULATOR -->
+  <div id="page-prorate" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">🧮 คิดค่าเช่าเดือนแรก (Pro-rate)</h2>
+    <p class="text-sm text-gray-500 mb-6">คำนวณค่าเช่าเดือนแรกสำหรับลูกบ้านที่เข้าอยู่กลางเดือน</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form id="prorateForm" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+        <h3 class="font-bold mb-2">ข้อมูลผู้เช่าใหม่</h3>
+        <div>
+          <label class="label">เลือกห้อง (จะดึงค่าเช่าอัตโนมัติ)</label>
+          <select name="room_id" id="prorateRoom" class="input"></select>
+        </div>
+        <div>
+          <label class="label">ค่าเช่ารายเดือน (฿)</label>
+          <input name="monthly_rent" type="number" class="input" required placeholder="3500">
+        </div>
+        <div>
+          <label class="label">วันที่เข้าอยู่</label>
+          <input name="move_in_date" type="date" class="input" required>
+        </div>
+        <div>
+          <label class="label">วันที่ครบกำหนดทุกเดือน</label>
+          <input name="due_day" type="number" min="1" max="31" class="input" value="5">
+        </div>
+        <button type="submit" class="btn-primary w-full">คำนวณ</button>
+      </form>
+      <div id="prorateResult" class="bg-gradient-to-br from-line/5 to-emerald-50 rounded-2xl border-2 border-dashed border-line/30 p-6 flex items-center justify-center">
+        <p class="text-gray-400 text-center">กรอกข้อมูล แล้วกดคำนวณ<br>เพื่อดูค่าเช่าเดือนแรก</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPERATOR PERMISSIONS -->
+  <div id="page-operatorperms" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">🛡️ สิทธิ์ Operator (ต่อผู้ใช้)</h2>
+        <p class="text-sm text-gray-400 mt-1">กำหนดว่าผู้ใช้แต่ละคนเห็น/ทำอะไรในหน้า Operator ได้บ้าง</p>
+      </div>
+    </div>
+    <div id="operatorPermsList" class="space-y-4"></div>
+  </div>
+
+  <!-- LINE FEATURES (Rich Menu + Broadcast) -->
+  <div id="page-line-features" class="page p-8 fade-in">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">💬 LINE Rich Menu + ประกาศ</h2>
+
+    <!-- Rich Menu -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2"><i class="ph-fill ph-squares-four text-line"></i>Rich Menu (เมนูใต้แชท)</h3>
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 text-sm text-yellow-800">
+        <p class="font-bold mb-2">📝 ขั้นตอนตั้งค่า Rich Menu:</p>
+        <ol class="list-decimal list-inside space-y-1">
+          <li>ตั้งค่า LINE Channel Token ก่อน (ในตั้งค่าระบบ)</li>
+          <li>ดาวน์โหลดรูป template จาก <a href="/richmenu/preview.html" target="_blank" class="text-line underline">/richmenu/preview.html</a></li>
+          <li>หรือออกแบบรูปขนาด <code class="bg-yellow-100 px-2">2500×1686 px</code> 6 ช่อง 3×2</li>
+          <li>อัปโหลดรูปด้านล่าง → กด "ติดตั้ง Rich Menu"</li>
+        </ol>
+      </div>
+      <div id="rmStatus" class="mb-4"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p class="font-semibold mb-2">👤 รูปสำหรับ Tenant (ลูกบ้าน)</p>
+          <input type="file" id="rmTenantFile" accept="image/png,image/jpeg" class="text-sm">
+          <button onclick="uploadRichMenu('tenant')" class="mt-2 bg-gray-100 px-3 py-1.5 rounded-lg text-sm">อัปโหลด</button>
+        </div>
+        <div>
+          <p class="font-semibold mb-2">👑 รูปสำหรับ Owner (เจ้าของหอ)</p>
+          <input type="file" id="rmOwnerFile" accept="image/png,image/jpeg" class="text-sm">
+          <button onclick="uploadRichMenu('owner')" class="mt-2 bg-gray-100 px-3 py-1.5 rounded-lg text-sm">อัปโหลด</button>
+        </div>
+      </div>
+      <button onclick="installRichMenu()" class="mt-4 w-full bg-line text-white py-3 rounded-xl font-bold">🚀 ติดตั้ง Rich Menu (ส่งขึ้น LINE)</button>
+    </div>
+
+    <!-- Broadcast -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2"><i class="ph-fill ph-megaphone text-line"></i>ส่งประกาศถึงลูกบ้าน</h3>
+      <form id="broadcastForm" class="space-y-3">
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="label">เลือกตึก (เว้นว่าง = ทุกตึก)</label>
+            <input name="building" class="input" placeholder="เช่น A">
+          </div>
+          <div>
+            <label class="label">เลือกชั้น (เว้นว่าง = ทุกชั้น)</label>
+            <input name="floor" type="number" class="input">
+          </div>
+          <div>
+            <label class="label">รูปแบบ</label>
+            <select name="format" class="input"><option value="text">ข้อความธรรมดา</option><option value="flex">Flex Card สวย</option></select>
+          </div>
+        </div>
+        <div><label class="label">หัวข้อประกาศ</label><input name="title" class="input" required placeholder="เช่น แจ้งน้ำไม่ไหล"></div>
+        <div><label class="label">รายละเอียด</label><textarea name="body" class="input h-24" required placeholder="พรุ่งนี้ 9-12 น. น้ำไม่ไหลเนื่องจากซ่อมระบบ"></textarea></div>
+        <div class="bg-blue-50 rounded-xl p-3 text-sm" id="bcPreview">กรอกแล้วระบบจะแสดงจำนวนผู้รับ</div>
+        <button type="submit" class="bg-line text-white py-3 rounded-xl font-bold w-full">📢 ส่งประกาศ</button>
+      </form>
+    </div>
+
+    <!-- Daily Dashboard Push -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2"><i class="ph-fill ph-chart-line text-line"></i>Dashboard ให้เจ้าของหอ</h3>
+      <p class="text-sm text-gray-500 mb-4">ระบบส่ง Dashboard สรุปข้อมูลให้เจ้าของหอผ่าน LINE อัตโนมัติทุกเช้า 8:00 และเย็น 18:00</p>
+      <button onclick="sendDashboardNow()" class="bg-line text-white py-3 px-6 rounded-xl font-bold">📊 ส่ง Dashboard ตอนนี้</button>
+    </div>
+  </div>
+
+  <!-- ADMINS -->
+  <div id="page-admins" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">จัดการผู้ดูแล (Users & Roles)</h2>
+        <p class="text-sm text-gray-400 mt-1">เพิ่ม / แก้ไข / กำหนดสิทธิ์ผู้ดูแลในหอพักนี้</p>
+      </div>
+      <button onclick="openAdminUserModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มผู้ดูแล</button>
+    </div>
+    <div class="bg-blue-50 rounded-xl p-4 mb-6 text-sm text-gray-700">
+      <p class="font-bold mb-2">📋 สิทธิ์แต่ละ role:</p>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+        <div class="bg-white rounded-lg p-3"><p class="font-bold text-purple-700">👑 เจ้าของหอ (owner)</p><p class="text-gray-600 mt-1">ทุกอย่าง + จัดการผู้ดูแล + การเงิน</p></div>
+        <div class="bg-white rounded-lg p-3"><p class="font-bold text-blue-700">⚙️ ผู้ดูแลระบบ (admin)</p><p class="text-gray-600 mt-1">ทุกอย่าง ยกเว้นการเงิน + เพิ่ม user</p></div>
+        <div class="bg-white rounded-lg p-3"><p class="font-bold text-green-700">📋 ผู้จัดการ (manager)</p><p class="text-gray-600 mt-1">ห้อง/บิล/สลิป/ซ่อม/ปฏิทิน</p></div>
+        <div class="bg-white rounded-lg p-3"><p class="font-bold text-orange-600">🔧 ช่างซ่อม (technician)</p><p class="text-gray-600 mt-1">เฉพาะแจ้งซ่อม/ทรัพย์สิน/vendor</p></div>
+      </div>
+    </div>
+    <div id="adminsList" class="space-y-3"></div>
+  </div>
+
+  <!-- PROPERTIES -->
+  <div id="page-properties" class="page p-8 fade-in">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">หอพักของคุณ (Multi-Property)</h2>
+      <button onclick="openPropertyModal()" class="bg-line text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"><i class="ph ph-plus"></i>เพิ่มหอพัก</button>
+    </div>
+    <div id="propertiesList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================ MODALS ============================================================ -->
+<div id="roomModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b border-gray-100">
+      <h3 class="font-bold text-gray-900" id="roomModalTitle">เพิ่มห้องพัก</h3>
+      <button onclick="closeModal('roomModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button>
+    </div>
+    <form id="roomForm" class="p-6 space-y-4">
+      <input type="hidden" id="roomId">
+      <div class="grid grid-cols-3 gap-4">
+        <div><label class="label">ตึก</label><input name="building" class="input" placeholder="A" maxlength="3" value="A"></div>
+        <div><label class="label">ชั้น</label><input name="floor" type="number" class="input" placeholder="1" value="1"></div>
+        <div><label class="label">เลขห้อง <span class="text-red-500">*</span></label><input name="room_number" class="input" required placeholder="07"></div>
+      </div>
+      <p class="text-xs text-gray-400 -mt-2">รหัสห้องจะถูกสร้างเป็น <span class="font-mono font-bold text-gray-700" id="roomCodePreview">A107</span></p>
+      <div><label class="label">ค่าเช่าต่อเดือน (฿) <span class="text-red-500">*</span></label><input name="monthly_rent" type="number" class="input" required placeholder="3500"></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">มิเตอร์น้ำเริ่มต้น</label><input name="initial_water_meter" type="number" class="input" value="0"></div>
+        <div><label class="label">มิเตอร์ไฟเริ่มต้น</label><input name="initial_electric_meter" type="number" class="input" value="0"></div>
+      </div>
+      <div><label class="label">หมายเหตุ</label><input name="notes" class="input" placeholder="เช่น มีแอร์, ห้องน้ำในตัว"></div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('roomModal')" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium">ยกเลิก</button>
+        <button type="submit" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="inviteModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+    <div class="w-14 h-14 bg-line/10 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="ph-fill ph-link text-line text-2xl"></i></div>
+    <h3 class="font-bold text-gray-900 mb-1">Invite Link สำหรับลูกบ้าน</h3>
+    <p class="text-gray-500 text-sm mb-4">ลิงก์ใช้ได้ 7 วัน และใช้ได้ครั้งเดียว</p>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+      <p class="text-xs text-gray-400 mb-1">ห้อง <span id="inviteRoomNumber" class="font-semibold text-gray-700"></span></p>
+      <p id="inviteUrl" class="text-sm text-line break-all font-medium"></p>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="copyInviteUrl()" class="flex-1 flex items-center justify-center gap-2 border border-gray-200 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50"><i class="ph ph-copy"></i>คัดลอก</button>
+      <button onclick="shareInviteUrl()" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center justify-center gap-2"><i class="ph ph-share-network"></i>แชร์</button>
+    </div>
+    <button onclick="closeModal('inviteModal')" class="mt-3 w-full text-sm text-gray-400">ปิด</button>
+  </div>
+</div>
+
+<div id="slipModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+    <div class="flex justify-between items-center p-4 border-b border-gray-100"><h3 class="font-bold text-gray-900" id="slipModalTitle">สลิปการโอนเงิน</h3><button onclick="closeModal('slipModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <div class="p-4">
+      <img id="slipImage" src="" class="w-full rounded-xl mb-4 max-h-80 object-contain">
+      <p class="text-sm text-gray-600 mb-4" id="slipInfo"></p>
+      <div id="slipActions" class="flex gap-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Contract Modal -->
+<div id="contractModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+      <h3 class="font-bold text-gray-900" id="contractModalTitle">ร่างสัญญาใหม่</h3>
+      <button onclick="closeModal('contractModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button>
+    </div>
+    <form id="contractForm" class="p-6 space-y-4">
+      <input type="hidden" id="contractId">
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">ห้อง <span class="text-red-500">*</span></label>
+          <select name="room_id" id="contractRoomSelect" class="input" required></select>
+        </div>
+        <div><label class="label">เลขที่สัญญา</label><input name="contract_number" class="input" placeholder="auto-generate"></div>
+      </div>
+      <h4 class="font-semibold text-gray-700 pt-2 border-t">ข้อมูลผู้เช่า</h4>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">ชื่อผู้เช่า</label><input name="tenant_name" class="input"></div>
+        <div><label class="label">เลขบัตรประชาชน</label><input name="tenant_id_card" class="input"></div>
+        <div><label class="label">เบอร์ติดต่อ</label><input name="tenant_phone" class="input"></div>
+        <div><label class="label">ที่อยู่</label><input name="tenant_address" class="input"></div>
+      </div>
+      <h4 class="font-semibold text-gray-700 pt-2 border-t">ระยะเวลา & ค่าเช่า</h4>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">วันเริ่มสัญญา</label><input name="start_date" type="date" class="input" required></div>
+        <div><label class="label">วันสิ้นสุด</label><input name="end_date" type="date" class="input" required></div>
+        <div><label class="label">ค่าเช่า/เดือน (฿)</label><input name="monthly_rent" type="number" class="input" required></div>
+        <div><label class="label">เงินประกัน (฿)</label><input name="deposit_amount" type="number" class="input" value="0"></div>
+        <div><label class="label">วันที่ต้องชำระทุกเดือน</label><input name="payment_due_day" type="number" min="1" max="31" class="input" value="5"></div>
+        <div><label class="label">สถานะ</label>
+          <select name="status" class="input"><option value="draft">ร่าง</option><option value="active">ใช้งาน</option><option value="expired">หมดอายุ</option><option value="terminated">บอกเลิก</option></select>
+        </div>
+      </div>
+      <div><label class="label">เงื่อนไขเพิ่มเติม</label><textarea name="custom_terms" class="input h-20"></textarea></div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('contractModal')" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium">ยกเลิก</button>
+        <button type="submit" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Template editor modal — WYSIWYG -->
+<div id="templateModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh]">
+    <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
+      <h3 class="font-bold text-gray-900">✏️ แก้ไข Template สัญญา</h3>
+      <button onclick="closeModal('templateModal')" class="text-gray-400 hover:text-gray-600"><i class="ph ph-x text-xl"></i></button>
+    </div>
+
+    <!-- Variables hint -->
+    <div class="px-5 py-2 bg-blue-50 border-b border-blue-100 flex-shrink-0">
+      <p class="text-xs text-blue-700">ตัวแปร: <span class="font-mono">{today} {dormitory_name} {tenant_name} {tenant_id_card} {tenant_phone} {room_code} {monthly_rent} {deposit_amount} {start_date} {end_date} {payment_due_day} {custom_terms}</span></p>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="px-5 py-2.5 border-b border-gray-100 flex items-center gap-1 flex-wrap flex-shrink-0 bg-gray-50">
+      <button onclick="wysiwyg('bold')" class="wysiwyg-btn" title="ตัวหนา"><i class="ph ph-text-b"></i></button>
+      <button onclick="wysiwyg('italic')" class="wysiwyg-btn" title="ตัวเอียง"><i class="ph ph-text-italic"></i></button>
+      <button onclick="wysiwyg('underline')" class="wysiwyg-btn" title="ขีดเส้นใต้"><i class="ph ph-text-underline"></i></button>
+      <div class="w-px h-6 bg-gray-300 mx-1"></div>
+      <button onclick="wysiwyg('justifyLeft')" class="wysiwyg-btn" title="ชิดซ้าย"><i class="ph ph-text-align-left"></i></button>
+      <button onclick="wysiwyg('justifyCenter')" class="wysiwyg-btn" title="กึ่งกลาง"><i class="ph ph-text-align-center"></i></button>
+      <button onclick="wysiwyg('justifyRight')" class="wysiwyg-btn" title="ชิดขวา"><i class="ph ph-text-align-right"></i></button>
+      <div class="w-px h-6 bg-gray-300 mx-1"></div>
+      <button onclick="wysiwyg('insertUnorderedList')" class="wysiwyg-btn" title="รายการหัวข้อ"><i class="ph ph-list-bullets"></i></button>
+      <button onclick="wysiwyg('insertOrderedList')" class="wysiwyg-btn" title="รายการตัวเลข"><i class="ph ph-list-numbers"></i></button>
+      <div class="w-px h-6 bg-gray-300 mx-1"></div>
+      <select onchange="wysiwyg('formatBlock',this.value);this.value=''" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white">
+        <option value="">หัวข้อ...</option>
+        <option value="h1">หัวข้อใหญ่ (H1)</option>
+        <option value="h2">หัวข้อรอง (H2)</option>
+        <option value="h3">หัวข้อย่อย (H3)</option>
+        <option value="p">ย่อหน้า (P)</option>
+      </select>
+      <div class="flex-1"></div>
+      <button onclick="tmplSwitchRaw()" id="tmplRawBtn" class="text-xs px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 font-mono" title="สลับ Source HTML"><i class="ph ph-code"></i> Source</button>
+    </div>
+
+    <!-- Editor area -->
+    <div class="flex-1 overflow-y-auto p-5 min-h-0">
+      <div id="templateEditor" contenteditable="true"
+        class="min-h-[400px] w-full border border-gray-200 rounded-xl p-5 outline-none focus:border-line text-sm leading-7"
+        style="font-family:'Prompt',sans-serif; white-space:pre-wrap;"
+        spellcheck="false"></div>
+      <textarea id="templateBody" class="hidden input h-96 font-mono text-sm"></textarea>
+      <textarea id="templateRaw" class="hidden w-full border border-gray-200 rounded-xl p-4 font-mono text-xs min-h-[400px] focus:outline-none focus:border-line"></textarea>
+    </div>
+
+    <div class="flex gap-3 p-5 border-t border-gray-100 flex-shrink-0">
+      <button onclick="closeModal('templateModal')" class="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm font-medium">ยกเลิก</button>
+      <button onclick="saveTemplate()" class="flex-[2] bg-line text-white py-2.5 rounded-xl font-semibold text-sm">💾 บันทึก Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- TX MODAL -->
+<div id="txModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">เพิ่มรายการ</h3><button onclick="closeModal('txModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="txForm" class="p-6 space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">ประเภท</label><select name="type" id="txType" class="input" required><option value="income">รายรับ</option><option value="expense">รายจ่าย</option></select></div>
+        <div><label class="label">หมวด</label><select name="category" id="txCategory" class="input"></select></div>
+      </div>
+      <div><label class="label">รายละเอียด</label><input name="description" class="input"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">ยอดเงิน (฿)</label><input name="amount" type="number" step="0.01" class="input" required></div>
+        <div><label class="label">วันที่</label><input name="transaction_date" type="date" class="input" required></div>
+      </div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- IMPORT BANK MODAL -->
+<div id="importBankModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">นำเข้า Bank Statement</h3><button onclick="closeModal('importBankModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <div class="p-6">
+      <p class="text-xs text-gray-500 mb-2">วาง CSV (date,description,amount,balance,reference) — ใช้ comma คั่น</p>
+      <textarea id="bankCsv" class="input h-48 font-mono text-xs" placeholder="2026-05-01,โอนจาก กรุงไทย,5420,124500,REF001
+2026-05-02,โอนจาก กสิกร,4500,129000,REF002"></textarea>
+      <button onclick="submitBankCsv()" class="btn-primary w-full mt-4">นำเข้า</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div id="eventModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">เพิ่มกิจกรรม</h3><button onclick="closeModal('eventModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="eventForm" class="p-6 space-y-3">
+      <div><label class="label">หัวข้อ</label><input name="title" class="input" required></div>
+      <div><label class="label">รายละเอียด</label><textarea name="description" class="input h-20"></textarea></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">วันที่</label><input name="event_date" type="date" class="input" required></div>
+        <div><label class="label">เวลา</label><input name="event_time" type="time" class="input"></div>
+      </div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- INSPECTION MODAL -->
+<div id="inspectionModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center p-6 border-b sticky top-0 bg-white"><h3 class="font-bold">บันทึกการตรวจห้อง</h3><button onclick="closeModal('inspectionModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="inspectionForm" class="p-6 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">ห้อง</label><select name="room_id" id="insRoomSelect" class="input" required></select></div>
+        <div><label class="label">ประเภท</label><select name="type" class="input" required><option value="move_in">ตรวจรับ (ย้ายเข้า)</option><option value="move_out">ตรวจคืน (ย้ายออก)</option></select></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div><label class="label">วันที่ตรวจ</label><input name="inspection_date" type="date" class="input" required></div>
+        <div><label class="label">มิเตอร์น้ำ</label><input name="water_meter" type="number" class="input"></div>
+        <div><label class="label">มิเตอร์ไฟ</label><input name="electric_meter" type="number" class="input"></div>
+      </div>
+      <div><label class="label">สภาพรวม</label>
+        <select name="overall_condition" class="input"><option value="excellent">ดีมาก</option><option value="good" selected>ดี</option><option value="fair">พอใช้</option><option value="poor">แย่</option></select>
+      </div>
+      <div><label class="label">หมายเหตุ</label><textarea name="notes" class="input h-20"></textarea></div>
+      <div>
+        <label class="label">รายการความเสียหาย (สำหรับหักประกัน)</label>
+        <div id="damagesList" class="space-y-2"></div>
+        <button type="button" onclick="addDamage()" class="text-xs text-line">+ เพิ่มความเสียหาย</button>
+      </div>
+      <div><label class="label">สถานะ</label><select name="status" class="input"><option value="draft">ร่าง</option><option value="completed">บันทึกแล้ว</option></select></div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- ASSET MODAL -->
+<div id="assetModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">ทรัพย์สิน</h3><button onclick="closeModal('assetModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="assetForm" class="p-6 space-y-3">
+      <input type="hidden" id="assetId">
+      <div><label class="label">ห้อง</label><select name="room_id" id="assetRoomSelect" class="input" required></select></div>
+      <div><label class="label">ชื่อทรัพย์สิน</label><input name="name" class="input" required placeholder="เช่น แอร์, เตียง, ตู้เย็น"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">หมวด</label><select name="category" class="input"><option>furniture</option><option>electronics</option><option>fixture</option><option>other</option></select></div>
+        <div><label class="label">Serial</label><input name="serial_number" class="input"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div><label class="label">วันซื้อ</label><input name="purchase_date" type="date" class="input"></div>
+        <div><label class="label">ราคา</label><input name="purchase_price" type="number" class="input"></div>
+        <div><label class="label">สภาพ</label><select name="condition" class="input"><option value="new">ใหม่</option><option value="good" selected>ดี</option><option value="fair">พอใช้</option><option value="poor">แย่</option><option value="broken">เสีย</option></select></div>
+      </div>
+      <div><label class="label">หมายเหตุ</label><input name="notes" class="input"></div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- VENDOR MODAL -->
+<div id="vendorModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">ผู้รับเหมา / ช่าง</h3><button onclick="closeModal('vendorModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="vendorForm" class="p-6 space-y-3">
+      <input type="hidden" id="vendorId">
+      <div><label class="label">ชื่อ</label><input name="name" class="input" required></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">หมวด</label><input name="category" class="input" placeholder="เช่น ช่างประปา, ช่างไฟ"></div>
+        <div><label class="label">Rating (1-5)</label><input name="rating" type="number" min="1" max="5" class="input"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">เบอร์</label><input name="phone" class="input"></div>
+        <div><label class="label">Email</label><input name="email" type="email" class="input"></div>
+      </div>
+      <div><label class="label">ที่อยู่</label><input name="address" class="input"></div>
+      <div><label class="label">หมายเหตุ</label><textarea name="notes" class="input h-20"></textarea></div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- BLACKLIST MODAL -->
+<div id="blacklistModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">เพิ่มเข้า Blacklist</h3><button onclick="closeModal('blacklistModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="blacklistForm" class="p-6 space-y-3">
+      <div><label class="label">ชื่อ-นามสกุล</label><input name="full_name" class="input" required></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">เลขบัตรประชาชน</label><input name="id_card" class="input"></div>
+        <div><label class="label">เบอร์โทร</label><input name="phone" class="input"></div>
+      </div>
+      <div><label class="label">ความรุนแรง</label><select name="severity" class="input"><option value="low">ต่ำ</option><option value="medium" selected>ปานกลาง</option><option value="high">สูง</option></select></div>
+      <div><label class="label">เหตุผล</label><textarea name="reason" class="input h-24" required></textarea></div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- CHARGE MODAL -->
+<div id="chargeModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold" id="chargeModalTitle">เพิ่มรายการ</h3><button onclick="closeModal('chargeModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="chargeForm" class="p-6 space-y-3">
+      <input type="hidden" id="chargeId">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">รหัส (code)</label><input name="code" class="input" placeholder="key_deposit" required></div>
+        <div><label class="label">ประเภท</label>
+          <select name="type" class="input" required>
+            <option value="deposit">มัดจำ (คืนได้)</option>
+            <option value="recurring">รายเดือน (ทุกบิล)</option>
+            <option value="onetime">ครั้งเดียว (เก็บตอนเช็คเอ้าต์)</option>
+          </select>
+        </div>
+      </div>
+      <div><label class="label">ชื่อรายการ</label><input name="label" class="input" placeholder="มัดจำกุญแจ" required></div>
+      <div><label class="label">จำนวนเงิน (฿)</label><input name="amount" type="number" step="0.5" class="input" required></div>
+      <div><label class="label">รายละเอียด</label><textarea name="description" class="input h-16"></textarea></div>
+      <div class="flex flex-wrap gap-3">
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="refundable" value="1" checked> คืนได้เมื่อย้ายออก</label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="required" value="1"> บังคับเก็บทุกห้อง</label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="enabled" value="1" checked> เปิดใช้งาน</label>
+      </div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- ADMIN USER MODAL -->
+<div id="adminUserModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold" id="adminUserModalTitle">เพิ่มผู้ดูแล</h3><button onclick="closeModal('adminUserModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="adminUserForm" class="p-6 space-y-3">
+      <input type="hidden" id="adminUserId">
+      <div><label class="label">ชื่อ-นามสกุล</label><input name="name" class="input" required></div>
+      <div><label class="label">Email (สำหรับ login)</label><input name="email" type="email" class="input" required></div>
+      <div><label class="label">รหัสผ่าน <span class="text-xs text-gray-400">(ปล่อยว่างถ้าไม่ต้องการเปลี่ยน)</span></label><input name="password" type="password" class="input" minlength="6"></div>
+      <div><label class="label">สิทธิ์ (Role)</label>
+        <select name="role" class="input" required>
+          <option value="manager">📋 manager — ผู้จัดการ</option>
+          <option value="technician">🔧 technician — ช่างซ่อม</option>
+          <option value="admin">⚙️ admin — ผู้ดูแลระบบ</option>
+          <option value="owner">👑 owner — เจ้าของหอ</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-primary w-full">บันทึก</button>
+    </form>
+  </div>
+</div>
+
+<!-- PROPERTY MODAL -->
+<div id="propertyModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex justify-between items-center p-6 border-b"><h3 class="font-bold">เพิ่มหอพักใหม่</h3><button onclick="closeModal('propertyModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
+    <form id="propertyForm" class="p-6 space-y-3">
+      <div><label class="label">ชื่อหอพัก</label><input name="name" class="input" required></div>
+      <div><label class="label">ที่อยู่</label><input name="address" class="input"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="label">ค่าน้ำ ฿/หน่วย</label><input name="water_rate" type="number" class="input" value="18"></div>
+        <div><label class="label">ค่าไฟ ฿/หน่วย</label><input name="electric_rate" type="number" class="input" value="8"></div>
+      </div>
+      <button type="submit" class="btn-primary w-full">เพิ่มหอพัก</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let currentPage = 'dashboard';
+let inviteCurrentUrl = '', inviteCurrentRoom = '', currentPaymentFilter = 'pending';
+let adminLinkUrl = '';
+
+// ============================================================
+// Init
+// ============================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  const now = new Date();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('billingMonth').value = `${now.getFullYear()}-${m}`;
+  const due = new Date(now.getFullYear(), now.getMonth()+1, 5);
+  document.getElementById('billingDueDate').value = due.toISOString().split('T')[0];
+  document.getElementById('dashMonth').textContent = `ประจำเดือน ${now.toLocaleDateString('th-TH',{month:'long',year:'numeric'})}`;
+
+  const ok = await checkAuth();
+  if (!ok) return;
+  showApp();
+  navigate('dashboard');
+});
+
+async function checkAuth() {
+  try {
+    const r = await api('/auth/me');
+    window._currentAdminId = r.admin.id;
+    document.getElementById('dormName').textContent = r.admin.dormitory_name;
+    document.getElementById('webhookUrl').textContent = `${location.origin}/line/webhook/${r.admin.dormitory_id}`;
+    // load my role + apply menu visibility
+    try {
+      const me = await api('/api/admin/admins/me/role');
+      window._myRole = me.role;
+      document.getElementById('adminName').textContent = `${r.admin.name} • ${me.label}`;
+      applyRoleMenuVisibility(me.role);
+    } catch {
+      window._myRole = r.admin.role || 'owner';
+      document.getElementById('adminName').textContent = r.admin.name;
+      applyRoleMenuVisibility(window._myRole);
+    }
+    return true;
+  } catch {
+    document.getElementById('loginPage').style.display = 'flex';
+    return false;
+  }
+}
+
+function applyRoleMenuVisibility(role) {
+  const visibility = {
+    owner: '*',
+    admin: ['dashboard','rooms','billing','payments','maintenance','collection','contracts','calendar','inspections','assets','vendors','moveout','blacklist','properties','settings','account'],
+    manager: ['dashboard','rooms','billing','payments','maintenance','contracts','calendar','inspections','assets','moveout','account'],
+    technician: ['dashboard','maintenance','assets','vendors','calendar','account']
+  };
+  const allowed = visibility[role];
+  if (allowed === '*') return;
+  document.querySelectorAll('.nav-link').forEach(link => {
+    const page = link.dataset.page;
+    if (!allowed.includes(page)) link.style.display = 'none';
+  });
+  // hide owner-only items for non-owner
+  if (role !== 'owner') {
+    document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
+  }
+}
+
+function showApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'flex';
+  document.getElementById('mainContent').style.flexDirection = 'column';
+}
+function showLogin() {
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'none';
+}
+
+// ============================================================
+// Navigation
+// ============================================================
+document.querySelectorAll('.nav-link').forEach(link => {
+  link.addEventListener('click', e => { e.preventDefault(); navigate(link.dataset.page); });
+});
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById(`page-${page}`)?.classList.add('active');
+  document.querySelector(`.nav-link[data-page="${page}"]`)?.classList.add('active');
+  currentPage = page;
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'rooms') loadRooms();
+  if (page === 'payments') loadPayments('pending');
+  if (page === 'maintenance') loadMaintenance();
+  if (page === 'collection') { showCollectionTab('overdue'); loadOverdue(); loadPolicy(); loadCollectionLogs(); }
+  if (page === 'contracts') loadContracts();
+  if (page === 'settings') loadSettings();
+  if (page === 'account') loadAccount();
+  if (page === 'finance') loadFinance();
+  if (page === 'analytics') loadAnalytics();
+  if (page === 'tax') loadTax();
+  if (page === 'bank') loadBank();
+  if (page === 'ownerstmt') loadOwnerStmt();
+  if (page === 'calendar') loadCalendar();
+  if (page === 'inspections') loadInspections();
+  if (page === 'assets') loadAssets();
+  if (page === 'vendors') loadVendors();
+  if (page === 'moveout') loadMoveOut();
+  if (page === 'blacklist') loadBlacklist();
+  if (page === 'properties') loadProperties();
+  if (page === 'admins') loadAdmins();
+  if (page === 'setup') loadSetupWizard();
+  if (page === 'charges') loadCharges('deposit');
+  if (page === 'license') loadLicense();
+  if (page === 'prorate') loadProrate();
+  if (page === 'operatorperms') loadOperatorPerms();
+  if (page === 'line-features') loadLineFeatures();
+}
+
+// ============================================================
+// API helper
+// ============================================================
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  if (r.status === 401) { showLogin(); throw new Error('Unauthorized'); }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Error');
+  return data;
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  try {
+    await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    await checkAuth();
+    showApp();
+    navigate('dashboard');
+  } catch(err) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }
+});
+async function logout() { await api('/auth/logout', { method: 'POST' }); location.reload(); }
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function loadDashboard() {
+  try {
+    const d = await api('/api/admin/dashboard');
+    document.getElementById('statsGrid').innerHTML = `
+      ${statCard('รายรับเดือนนี้','฿'+fmt(d.revenue),'text-green-600','ph-money','bg-green-50 text-green-600',(d.revenue_breakdown?.from_finance>0?'รวมรายรับจากบัญชี ฿'+fmt(d.revenue_breakdown.from_finance):''))}
+      ${statCard('บิลรอชำระ','฿'+fmt(d.pending_amount||0),'text-amber-600','ph-clock','bg-amber-50 text-amber-600',(d.overdue_count>0?(d.overdue_count+' บิลเลยกำหนด • '):'')+(d.pending_count||0)+' บิลทั้งหมด')}
+      ${statCard('อัตราการเช่า',d.occupied_rooms+'/'+d.total_rooms,'text-gray-900','ph-door','bg-blue-50 text-blue-600','ห้องว่าง '+d.vacant_rooms+' ห้อง')}
+      ${statCard('แจ้งซ่อมค้าง',d.pending_maintenance,'text-gray-900','ph-wrench','bg-orange-50 text-orange-500','รอดำเนินการ')}
+    `;
+    const navSlip = document.getElementById('navSlipBadge');
+    if (d.pending_slips.length > 0) { navSlip.textContent = d.pending_slips.length; navSlip.classList.remove('hidden'); }
+    else navSlip.classList.add('hidden');
+
+    const navOd = document.getElementById('navOverdueBadge');
+    if (d.overdue_count > 0) { navOd.textContent = d.overdue_count; navOd.classList.remove('hidden'); }
+    else navOd.classList.add('hidden');
+
+    const listEl = document.getElementById('pendingSlipsList');
+    if (d.pending_slips.length === 0) {
+      listEl.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">ไม่มีสลิปรอตรวจสอบ 🎉</div>';
+    } else {
+      listEl.innerHTML = d.pending_slips.slice(0,5).map(p => `
+        <div class="p-4 px-6 flex items-center justify-between hover:bg-gray-50 gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center"><i class="ph-fill ph-receipt text-orange-500"></i></div>
+            <div>
+              <p class="text-sm font-semibold text-gray-900">ห้อง ${p.room_code||p.room_number} — ${p.display_name||'ลูกบ้าน'}</p>
+              <p class="text-xs text-gray-400">บิลเดือน ${p.billing_month} • ฿${fmt(p.bill_total)}</p>
+            </div>
+          </div>
+          <button onclick="openSlip(${p.id},'${p.room_code||p.room_number}',${p.bill_total},'${p.billing_month}')" class="text-sm bg-line text-white px-4 py-1.5 rounded-lg font-medium hover:bg-line-dark">ตรวจสอบ</button>
+        </div>
+      `).join('');
+    }
+  } catch(err) { console.error(err); }
+}
+function statCard(label, value, valueClass, icon, iconClass, sub) {
+  return `<div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+    <div class="flex justify-between items-start mb-3">
+      <p class="text-gray-500 text-sm font-medium">${label}</p>
+      <div class="p-2 ${iconClass} rounded-lg"><i class="ph ${icon} text-xl"></i></div>
+    </div>
+    <p class="text-3xl font-bold ${valueClass}">${value}</p>
+    ${sub ? `<p class="text-xs text-gray-400 mt-2">${sub}</p>` : ''}
+  </div>`;
+}
+
+// ============================================================
+// ROOMS — multi-building catalog
+// ============================================================
+async function loadRooms() {
+  try {
+    const rooms = await api('/api/admin/rooms');
+    document.getElementById('navRoomBadge').textContent = rooms.length;
+    if (!rooms.length) {
+      document.getElementById('buildingsCatalog').innerHTML = '<div class="text-center text-gray-400 py-16">ยังไม่มีห้องพัก กดปุ่ม + เพิ่มห้องเลย</div>';
+      return;
+    }
+    // group by building -> floor
+    const byBuilding = {};
+    for (const r of rooms) {
+      const b = r.building || 'A';
+      const f = r.floor || 1;
+      byBuilding[b] = byBuilding[b] || {};
+      byBuilding[b][f] = byBuilding[b][f] || [];
+      byBuilding[b][f].push(r);
+    }
+    const html = Object.keys(byBuilding).sort().map(b => {
+      const floors = byBuilding[b];
+      const rooms = Object.values(floors).flat();
+      const total = rooms.length;
+      const occupied = rooms.filter(r => r.tenant_name).length;
+      const floorsHtml = Object.keys(floors).sort((a,c) => +a-+c).map(f => {
+        return `<div class="mb-4">
+          <h4 class="text-sm font-semibold text-gray-500 mb-2 px-1">ชั้น ${f}</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            ${floors[f].map(roomCard).join('')}
+          </div>
+        </div>`;
+      }).join('');
+      return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-line/10 rounded-xl flex items-center justify-center"><i class="ph-fill ph-buildings text-line text-xl"></i></div>
+            <div>
+              <h3 class="font-bold text-gray-900 text-lg">ตึก ${b}</h3>
+              <p class="text-xs text-gray-400">${total} ห้อง • ${occupied} มีผู้เช่า • ${total-occupied} ว่าง</p>
+            </div>
+          </div>
+        </div>
+        ${floorsHtml}
+      </div>`;
+    }).join('');
+    document.getElementById('buildingsCatalog').innerHTML = html;
+  } catch(err) { console.error(err); }
+}
+
+function roomCard(r) {
+  const occupied = !!r.tenant_name;
+  const statusBadge = occupied
+    ? `<span class="badge-occupied text-xs px-2 py-0.5 rounded-full font-medium">มีผู้เช่า</span>`
+    : `<span class="badge-vacant text-xs px-2 py-0.5 rounded-full font-medium">ว่าง</span>`;
+  const billBadge = r.last_bill_status
+    ? `<span class="text-xs px-2 py-0.5 rounded-full font-medium badge-${r.last_bill_status}">${{pending:'รอชำระ',paid:'ชำระแล้ว',reviewing:'รอตรวจ',overdue:'ค้างชำระ'}[r.last_bill_status]||r.last_bill_status}</span>`
+    : '';
+  return `<div class="bg-gray-50 rounded-2xl p-4 hover:bg-white hover:shadow-md transition border border-gray-100">
+    <div class="flex justify-between items-start mb-2">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900 leading-none">${r.room_code || r.room_number}</h3>
+        <p class="text-xs text-gray-400 mt-0.5">เลขห้อง ${r.room_number}</p>
+      </div>
+      ${statusBadge}
+    </div>
+    <p class="text-sm text-gray-500 mb-1">฿${fmt(r.monthly_rent)}/เดือน</p>
+    ${occupied ? `<p class="text-xs text-gray-700 font-medium mb-1 truncate"><i class="ph ph-user text-gray-400"></i> ${r.tenant_name}</p>` : ''}
+    ${r.last_bill_month ? `<div class="flex items-center gap-2 mt-2">${billBadge}<span class="text-xs text-gray-400">${r.last_bill_month} ฿${fmt(r.last_bill_amount)}</span></div>` : ''}
+    <div class="flex gap-1 mt-3 flex-wrap">
+      <button onclick="generateInvite(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-line/10 text-line px-2 py-1 rounded-lg hover:bg-line/20"><i class="ph ph-link-simple"></i> Invite</button>
+      <button onclick='openEditRoom(${JSON.stringify(r).replace(/"/g,"&quot;")})' class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-200"><i class="ph ph-pencil-simple"></i> แก้ไข</button>
+      ${occupied ? `<button onclick="confirmCheckout(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg hover:bg-red-100"><i class="ph ph-door-open"></i> Out</button>` : `<button onclick="confirmDelete(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg hover:bg-red-100"><i class="ph ph-trash"></i></button>`}
+    </div>
+  </div>`;
+}
+
+function openAddRoom() {
+  document.getElementById('roomModalTitle').textContent = 'เพิ่มห้องพัก';
+  document.getElementById('roomForm').reset();
+  document.getElementById('roomId').value = '';
+  document.querySelector('#roomForm [name=building]').value = 'A';
+  document.querySelector('#roomForm [name=floor]').value = '1';
+  updateRoomCodePreview();
+  openModal('roomModal');
+}
+function openEditRoom(r) {
+  document.getElementById('roomModalTitle').textContent = 'แก้ไขห้อง ' + (r.room_code || r.room_number);
+  document.getElementById('roomId').value = r.id;
+  const form = document.getElementById('roomForm');
+  ['building','floor','room_number','monthly_rent','notes','initial_water_meter','initial_electric_meter'].forEach(k => {
+    if (form[k]) form[k].value = r[k] !== undefined && r[k] !== null ? r[k] : '';
+  });
+  updateRoomCodePreview();
+  openModal('roomModal');
+}
+function updateRoomCodePreview() {
+  const f = document.getElementById('roomForm');
+  if (!f) return;
+  const b = (f.building?.value || 'A').toUpperCase();
+  const fl = f.floor?.value || '1';
+  const rn = f.room_number?.value || '';
+  document.getElementById('roomCodePreview').textContent = b + fl + rn;
+}
+document.getElementById('roomForm').addEventListener('input', updateRoomCodePreview);
+
+document.getElementById('roomForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('roomId').value;
+  const data = Object.fromEntries(new FormData(e.target));
+  try {
+    if (id) await api(`/api/admin/rooms/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    else await api('/api/admin/rooms', { method: 'POST', body: JSON.stringify(data) });
+    closeModal('roomModal'); loadRooms();
+  } catch(err) { alert(err.message); }
+});
+
+async function generateInvite(roomId, roomCode) {
+  try {
+    const r = await api(`/api/admin/rooms/${roomId}/invite`, { method: 'POST' });
+    inviteCurrentUrl = r.url; inviteCurrentRoom = roomCode;
+    document.getElementById('inviteRoomNumber').textContent = roomCode;
+    document.getElementById('inviteUrl').textContent = r.url;
+    openModal('inviteModal');
+  } catch(err) { alert(err.message); }
+}
+function copyInviteUrl() { navigator.clipboard.writeText(inviteCurrentUrl).then(() => alert('คัดลอกแล้ว!')); }
+function shareInviteUrl() {
+  if (navigator.share) navigator.share({ title: `Invite ห้อง ${inviteCurrentRoom}`, url: inviteCurrentUrl });
+  else copyInviteUrl();
+}
+async function confirmCheckout(id, code) {
+  if (!confirm(`ยืนยัน Checkout ห้อง ${code}?`)) return;
+  try { await api(`/api/admin/rooms/${id}/checkout`, { method: 'POST' }); loadRooms(); } catch(err) { alert(err.message); }
+}
+async function confirmDelete(id, code) {
+  if (!confirm(`ลบห้อง ${code}? ข้อมูลทั้งหมดจะหายไปถาวร`)) return;
+  try { await api(`/api/admin/rooms/${id}`, { method: 'DELETE' }); loadRooms(); } catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// BILLING
+// ============================================================
+let _billingMode = 'all';
+function setBillingMode(mode) {
+  _billingMode = mode;
+  document.getElementById('bmAll').className = `px-5 py-2.5 rounded-xl text-sm font-semibold transition ${mode==='all'?'bg-line text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
+  document.getElementById('bmSingle').className = `px-5 py-2.5 rounded-xl text-sm font-semibold transition ${mode==='single'?'bg-line text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
+  document.getElementById('singleRoomRow').classList.toggle('hidden', mode !== 'single');
+  document.getElementById('billingLoadBtn').classList.toggle('hidden', mode === 'single');
+  document.getElementById('billingTable').innerHTML = '';
+  if (mode === 'single') populateSingleRoomList();
+}
+async function populateSingleRoomList() {
+  const rooms = await api('/api/admin/rooms');
+  const occupied = rooms.filter(r => r.tenant_name);
+  document.getElementById('singleRoomSelect').innerHTML = '<option value="">— เลือกห้อง —</option>' +
+    occupied.map(r => `<option value="${r.id}">${r.room_code||r.room_number} — ${r.tenant_name}</option>`).join('');
+}
+async function loadSingleRoom() {
+  const roomId = parseInt(document.getElementById('singleRoomSelect').value);
+  if (!roomId) { document.getElementById('billingTable').innerHTML = ''; return; }
+  const month = document.getElementById('billingMonth').value;
+  const rooms = await api('/api/admin/rooms');
+  const r = rooms.find(x => x.id === roomId);
+  if (!r) return;
+  const prev = await api('/api/admin/bills/prev-readings');
+  window._prevReadings = prev;
+  const p = (prev || {})[roomId] || { prev_water: 0, prev_electric: 0 };
+  const existing = await api(`/api/admin/bills?month=${month}`);
+  const b = existing.find(x => x.room_id === roomId);
+  window._billingRooms = [r];
+  document.getElementById('billingTable').innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <h3 class="font-bold text-gray-900">กรอกมิเตอร์ห้อง ${r.room_code||r.room_number} — ${month}</h3>
+        <button onclick="submitBills()" class="bg-line text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-paper-plane-tilt"></i>ออกบิล &amp; ส่ง LINE</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-xl p-4">
+            <p class="text-xs text-gray-500 mb-2">💧 มิเตอร์น้ำ</p>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm text-gray-400">ก่อนหน้า: ${p.prev_water}</span>
+            </div>
+            <input type="number" name="water_${r.id}" value="${b?.water_meter_curr||''}" placeholder="มิเตอร์ปัจจุบัน" class="input" oninput="updateUnitDisplay(${r.id},'water',${p.prev_water})">
+            <p class="text-xs font-bold text-blue-600 mt-1" id="wu_${r.id}">— หน่วย</p>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-4">
+            <p class="text-xs text-gray-500 mb-2">⚡ มิเตอร์ไฟ</p>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm text-gray-400">ก่อนหน้า: ${p.prev_electric}</span>
+            </div>
+            <input type="number" name="elec_${r.id}" value="${b?.electric_meter_curr||''}" placeholder="มิเตอร์ปัจจุบัน" class="input" oninput="updateUnitDisplay(${r.id},'elec',${p.prev_electric})">
+            <p class="text-xs font-bold text-amber-600 mt-1" id="eu_${r.id}">— หน่วย</p>
+          </div>
+        </div>
+        <div>
+          <label class="label">ค่าอื่นๆ (฿)</label>
+          <input type="number" name="other_${r.id}" value="${b?.other_amount||0}" class="input w-48">
+        </div>
+      </div>
+    </div>`;
+  updateUnitDisplay(r.id, 'water', p.prev_water || 0);
+  updateUnitDisplay(r.id, 'elec', p.prev_electric || 0);
+}
+async function loadBillingRooms() {
+  const month = document.getElementById('billingMonth').value;
+  const rooms = await api('/api/admin/rooms');
+  const occupied = rooms.filter(r => r.tenant_name);
+  if (!occupied.length) { document.getElementById('billingTable').innerHTML = '<p class="text-gray-400 text-center py-8">ไม่มีห้องที่มีผู้เช่า</p>'; return; }
+  const existing = await api(`/api/admin/bills?month=${month}`);
+  const billMap = Object.fromEntries(existing.map(b => [b.room_id, b]));
+  const prev = await api('/api/admin/bills/prev-readings');
+  window._prevReadings = prev;
+  document.getElementById('billingTable').innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+        <h3 class="font-bold text-gray-900">กรอกมิเตอร์ ${month}</h3>
+        <button onclick="submitBills()" class="bg-line text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center gap-2"><i class="ph ph-paper-plane-tilt"></i>ออกบิลและส่ง LINE</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+              <th class="px-4 py-3 text-left">ห้อง</th>
+              <th class="px-4 py-3 text-left">ผู้เช่า</th>
+              <th class="px-4 py-3 text-left">น้ำ (ก่อน → ปัจจุบัน) = หน่วย</th>
+              <th class="px-4 py-3 text-left">ไฟ (ก่อน → ปัจจุบัน) = หน่วย</th>
+              <th class="px-4 py-3 text-left">ค่าอื่นๆ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            ${occupied.map(r => {
+              const b = billMap[r.id];
+              const p = (window._prevReadings || {})[r.id] || { prev_water: 0, prev_electric: 0 };
+              return `<tr class="hover:bg-gray-50">
+                <td class="px-4 py-4 font-semibold text-gray-900">${r.room_code||r.room_number}</td>
+                <td class="px-4 py-4 text-gray-600">${r.tenant_name||'-'}</td>
+                <td class="px-4 py-4">
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-gray-400 w-12 text-right">${p.prev_water}</span>
+                    <span class="text-gray-300">→</span>
+                    <input type="number" name="water_${r.id}" value="${b?.water_meter_curr||''}" placeholder="ปัจจุบัน" class="input w-24" required oninput="updateUnitDisplay(${r.id},'water',${p.prev_water})">
+                    <span class="text-xs font-bold text-blue-600 w-16 text-right" id="wu_${r.id}">— หน่วย</span>
+                  </div>
+                </td>
+                <td class="px-4 py-4">
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-gray-400 w-12 text-right">${p.prev_electric}</span>
+                    <span class="text-gray-300">→</span>
+                    <input type="number" name="elec_${r.id}" value="${b?.electric_meter_curr||''}" placeholder="ปัจจุบัน" class="input w-24" required oninput="updateUnitDisplay(${r.id},'elec',${p.prev_electric})">
+                    <span class="text-xs font-bold text-amber-600 w-16 text-right" id="eu_${r.id}">— หน่วย</span>
+                  </div>
+                </td>
+                <td class="px-4 py-4"><input type="number" name="other_${r.id}" value="${b?.other_amount||0}" class="input w-24"></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  window._billingRooms = occupied;
+  // คำนวณหน่วยเริ่มต้นสำหรับห้องที่มีค่าอยู่แล้ว
+  for (const r of occupied) {
+    const p = (window._prevReadings || {})[r.id] || {};
+    updateUnitDisplay(r.id, 'water', p.prev_water || 0);
+    updateUnitDisplay(r.id, 'elec', p.prev_electric || 0);
+  }
+}
+function updateUnitDisplay(roomId, kind, prev) {
+  const inp = document.querySelector(`[name="${kind==='water'?'water':'elec'}_${roomId}"]`);
+  const out = document.getElementById((kind==='water'?'wu_':'eu_') + roomId);
+  if (!inp || !out) return;
+  const v = parseInt(inp.value);
+  if (Number.isNaN(v)) { out.textContent = '— หน่วย'; out.className = out.className.replace(/text-(red|blue|amber)-\d+/g, 'text-gray-400'); return; }
+  const u = v - prev;
+  if (u < 0) { out.textContent = `⚠️ ${u}`; out.className = 'text-xs font-bold text-red-600 w-16 text-right'; }
+  else { out.textContent = `${u} หน่วย`; out.className = `text-xs font-bold ${kind==='water'?'text-blue-600':'text-amber-600'} w-16 text-right`; }
+}
+async function submitBills() {
+  const month = document.getElementById('billingMonth').value;
+  const dueDate = document.getElementById('billingDueDate').value;
+  const rooms = window._billingRooms || [];
+  const readings = {};
+  for (const r of rooms) {
+    const w = document.querySelector(`[name="water_${r.id}"]`)?.value;
+    const e = document.querySelector(`[name="elec_${r.id}"]`)?.value;
+    const o = document.querySelector(`[name="other_${r.id}"]`)?.value || 0;
+    if (!w || !e) { alert(`กรุณากรอกมิเตอร์ห้อง ${r.room_code||r.room_number}`); return; }
+    readings[r.id] = { water_curr: parseInt(w), electric_curr: parseInt(e), other_amount: parseFloat(o) };
+  }
+  try {
+    const r = await api('/api/admin/bills/generate', { method: 'POST', body: JSON.stringify({ billing_month: month, readings, due_date: dueDate }) });
+    alert(`ออกบิลและส่ง LINE สำเร็จ ${r.results.length} ห้อง!`);
+  } catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+async function loadPayments(status) {
+  currentPaymentFilter = status;
+  ['pending','approved','rejected'].forEach(s => {
+    const btn = document.getElementById(`filter${s.charAt(0).toUpperCase()+s.slice(1)}`);
+    if(btn) btn.className = `px-4 py-2 rounded-xl text-sm font-medium transition ${s===status?'bg-line text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
+  });
+  try {
+    const list = await api(`/api/admin/payments?status=${status}`);
+    document.getElementById('paymentsList').innerHTML = list.length === 0 ? '<p class="text-center text-gray-400 py-16">ไม่มีรายการ</p>' : list.map(paymentRow).join('');
+  } catch(err) { console.error(err); }
+}
+function paymentRow(p) {
+  const m = { pending:'รอตรวจ',approved:'อนุมัติแล้ว',rejected:'ปฏิเสธแล้ว' };
+  const c = { pending:'badge-pending',approved:'badge-paid',rejected:'badge-overdue' };
+  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+    ${p.slip_path ? `<img src="/${p.slip_path}" class="w-16 h-16 rounded-xl object-cover flex-shrink-0 cursor-pointer" onclick="openSlip(${p.id},'${p.room_code||p.room_number}',${p.bill_total},'${p.billing_month}')">` : `<div class="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center"><i class="ph ph-file-image text-gray-400 text-2xl"></i></div>`}
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2 mb-1">
+        <p class="font-semibold text-gray-900">ห้อง ${p.room_code||p.room_number} — ${p.tenant_name||'ลูกบ้าน'}</p>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${c[p.status]}">${m[p.status]}</span>
+      </div>
+      <p class="text-sm text-gray-500">บิลเดือน ${p.billing_month} • <span class="font-semibold text-gray-800">฿${fmt(p.bill_total)}</span></p>
+      <p class="text-xs text-gray-400">${new Date(p.created_at).toLocaleString('th-TH')}</p>
+      ${p.reject_reason ? `<p class="text-xs text-red-500 mt-1">เหตุผล: ${p.reject_reason}</p>` : ''}
+    </div>
+    ${p.status === 'pending' ? `<div class="flex gap-2">
+      <button onclick="approvePayment(${p.id})" class="bg-line text-white px-4 py-2 rounded-xl text-sm font-semibold">✓ อนุมัติ</button>
+      <button onclick="rejectPayment(${p.id})" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-sm font-semibold">✕ ปฏิเสธ</button>
+    </div>` : ''}
+  </div>`;
+}
+function openSlip(id, room, amount, month) {
+  api(`/api/admin/payments?status=${currentPaymentFilter}`).then(list => {
+    const p = list.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('slipModalTitle').textContent = `สลิป ห้อง ${room} | ${month}`;
+    document.getElementById('slipImage').src = p.slip_path ? `/${p.slip_path}` : '';
+    document.getElementById('slipInfo').textContent = `ยอด ฿${fmt(amount)} | ${p.tenant_name||'ลูกบ้าน'}`;
+    const actions = document.getElementById('slipActions');
+    actions.innerHTML = p.status === 'pending'
+      ? `<button onclick="approvePayment(${id});closeModal('slipModal')" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold">✓ อนุมัติ</button>
+         <button onclick="rejectPayment(${id});closeModal('slipModal')" class="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-sm font-semibold">✕ ปฏิเสธ</button>`
+      : '';
+    openModal('slipModal');
+  });
+}
+async function approvePayment(id) {
+  try { await api(`/api/admin/payments/${id}/approve`, { method: 'POST' }); loadPayments(currentPaymentFilter); loadDashboard(); }
+  catch(err) { alert(err.message); }
+}
+async function rejectPayment(id) {
+  const reason = prompt('เหตุผลการปฏิเสธ:') || '';
+  try { await api(`/api/admin/payments/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }); loadPayments(currentPaymentFilter); }
+  catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// MAINTENANCE
+// ============================================================
+async function loadMaintenance(status) {
+  const url = status ? `/api/admin/maintenance?status=${status}` : '/api/admin/maintenance';
+  try {
+    const list = await api(url);
+    const navMaint = document.getElementById('navMaintBadge');
+    const pendingCount = list.filter(m => m.status === 'pending').length;
+    if (pendingCount > 0) { navMaint.textContent = pendingCount; navMaint.classList.remove('hidden'); }
+    else navMaint.classList.add('hidden');
+    document.getElementById('maintenanceList').innerHTML = list.length === 0 ? '<p class="text-center text-gray-400 py-16">ไม่มีรายการ</p>' : list.map(maintenanceRow).join('');
+  } catch(err) { console.error(err); }
+}
+function maintenanceRow(m) {
+  const sm = { pending:'รอดำเนินการ', in_progress:'กำลังดำเนินการ', completed:'เสร็จแล้ว', cancelled:'ยกเลิก' };
+  const sc = { pending:'badge-pending', in_progress:'bg-blue-100 text-blue-700', completed:'badge-paid', cancelled:'bg-gray-100 text-gray-500' };
+  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex gap-4">
+    ${m.image_path ? `<img src="/${m.image_path}" class="w-16 h-16 rounded-xl object-cover">` : `<div class="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center"><i class="ph ph-wrench text-gray-400 text-2xl"></i></div>`}
+    <div class="flex-1">
+      <div class="flex items-center gap-2 mb-1">
+        <p class="font-semibold text-gray-900">ห้อง ${m.room_code||m.room_number} — ${m.title}</p>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${sc[m.status]}">${sm[m.status]||m.status}</span>
+      </div>
+      ${m.description ? `<p class="text-sm text-gray-500 mb-2">${m.description}</p>` : ''}
+      <p class="text-xs text-gray-400">${new Date(m.created_at).toLocaleString('th-TH')}</p>
+    </div>
+    ${m.status !== 'completed' ? `<div class="flex flex-col gap-2">
+      ${m.status === 'pending' ? `<button onclick="updateMaintenance(${m.id},'in_progress')" class="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg">รับเรื่อง</button>` : ''}
+      <button onclick="updateMaintenance(${m.id},'completed')" class="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-lg">เสร็จแล้ว</button>
+      <button onclick="updateMaintenance(${m.id},'cancelled')" class="text-xs bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg">ยกเลิก</button>
+    </div>` : ''}
+  </div>`;
+}
+async function updateMaintenance(id, status) {
+  try { await api(`/api/admin/maintenance/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }); loadMaintenance(); }
+  catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// COLLECTION
+// ============================================================
+function showCollectionTab(tab) {
+  ['overdue','policy','logs'].forEach(t => {
+    const btn = document.getElementById('ctab-' + t);
+    btn.className = 'px-4 py-2 rounded-xl text-sm font-medium ' + (t === tab ? 'bg-line text-white' : 'bg-gray-100 text-gray-700');
+    document.getElementById('ctab-content-' + t).classList.toggle('hidden', t !== tab);
+  });
+}
+
+async function loadOverdue() {
+  try {
+    const list = await api('/api/admin/collection/overdue');
+    const el = document.getElementById('overdueList');
+    if (!list.length) { el.innerHTML = '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400">✅ ไม่มีบิลค้างชำระ</div>'; return; }
+    el.innerHTML = list.map(b => `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="font-bold text-gray-900">ห้อง ${b.room_code||b.room_number}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium badge-overdue">ค้าง ${b.days_overdue} วัน</span>
+        </div>
+        <p class="text-sm text-gray-500">บิล ${b.billing_month} • ${b.display_name||'ลูกบ้าน'}</p>
+        <p class="text-sm text-gray-700 mt-1">ยอดเดิม ฿${fmt(b.total_amount-b.late_fee)} + ค่าปรับ ฿${fmt(b.computed_late_fee)} = <span class="font-bold text-red-600">฿${fmt(b.computed_total)}</span></p>
+      </div>
+    </div>`).join('');
+  } catch(err) { console.error(err); }
+}
+
+async function runCollection() {
+  if (!confirm('ส่งข้อความติดตามหนี้ตอนนี้ตามนโยบายที่ตั้งไว้?')) return;
+  try {
+    const r = await api('/api/admin/collection/run', { method: 'POST' });
+    alert(`ส่งสำเร็จ ${r.sent} รายการ • ข้าม ${r.skipped} • ทั้งหมด ${r.total_overdue} บิลที่ค้าง`);
+    loadOverdue(); loadCollectionLogs();
+  } catch(err) { alert(err.message); }
+}
+
+async function loadPolicy() {
+  try {
+    const p = await api('/api/admin/collection/policy');
+    const f = document.getElementById('policyForm');
+    Object.keys(p).forEach(k => { if (f[k]) f[k].value = p[k] !== null ? p[k] : ''; });
+    // checkbox states
+    const acts = (p.escalation_actions || '').split(',').map(s => s.trim()).filter(Boolean);
+    document.querySelectorAll('.esc-action').forEach(cb => { cb.checked = acts.includes(cb.value); });
+  } catch(err) { console.error(err); }
+}
+
+document.getElementById('policyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form));
+  const acts = Array.from(document.querySelectorAll('.esc-action:checked')).map(cb => cb.value);
+  data.escalation_actions = acts.join(',');
+  try {
+    await api('/api/admin/collection/policy', { method: 'PUT', body: JSON.stringify(data) });
+    alert('บันทึกนโยบายแล้ว!');
+    loadPolicy();
+  } catch(err) { alert(err.message); }
+});
+
+async function loadCollectionLogs() {
+  try {
+    const list = await api('/api/admin/collection/logs');
+    const el = document.getElementById('collectionLogsList');
+    if (!list.length) { el.innerHTML = '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มีประวัติ</div>'; return; }
+    const stageMap = { reminder1:'แจ้ง 1', reminder2:'แจ้ง 2', formal_notice:'ทางการ', escalation:'ผิดสัญญา', manual:'แอดมินส่ง' };
+    el.innerHTML = list.map(l => `<div class="bg-white rounded-xl border border-gray-100 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <div class="flex items-center gap-2">
+          <p class="font-semibold text-gray-900 text-sm">ห้อง ${l.room_code||l.room_number} • ${l.billing_month}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-700">${stageMap[l.stage]||l.stage}</span>
+        </div>
+        <p class="text-xs text-gray-400">${new Date(l.sent_at).toLocaleString('th-TH')}</p>
+      </div>
+      <p class="text-xs text-gray-500 whitespace-pre-line">${(l.message_sent || '').slice(0, 200)}</p>
+    </div>`).join('');
+  } catch(err) { console.error(err); }
+}
+
+// ============================================================
+// CONTRACTS
+// ============================================================
+async function loadContracts() {
+  try {
+    const list = await api('/api/admin/contracts');
+    const el = document.getElementById('contractsList');
+    if (!list.length) { el.innerHTML = '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center text-gray-400">ยังไม่มีสัญญา • กดร่างสัญญาใหม่</div>'; return; }
+    const statusMap = { draft:'ร่าง', active:'ใช้งาน', expiring:'ใกล้หมดอายุ', expired:'หมดอายุ', terminated:'บอกเลิก' };
+    el.innerHTML = list.map(c => `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="font-bold text-gray-900">${c.contract_number}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium badge-${c.status}">${statusMap[c.status]||c.status}</span>
+        </div>
+        <p class="text-sm text-gray-500">ห้อง ${c.room_code||c.room_number} • ${c.tenant_name||'-'}</p>
+        <p class="text-xs text-gray-400 mt-1">${c.start_date} → ${c.end_date} • ฿${fmt(c.monthly_rent)}/เดือน</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/api/admin/contracts/${c.id}/render" target="_blank" class="text-xs bg-line/10 text-line px-3 py-1.5 rounded-lg hover:bg-line/20"><i class="ph ph-eye"></i> ดู/พิมพ์</a>
+        <button onclick="editContract(${c.id})" class="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg"><i class="ph ph-pencil-simple"></i> แก้ไข</button>
+        <button onclick="deleteContract(${c.id})" class="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg"><i class="ph ph-trash"></i></button>
+      </div>
+    </div>`).join('');
+  } catch(err) { console.error(err); }
+}
+
+async function openContractModal() {
+  document.getElementById('contractModalTitle').textContent = 'ร่างสัญญาใหม่';
+  document.getElementById('contractForm').reset();
+  document.getElementById('contractId').value = '';
+  // populate rooms
+  const rooms = await api('/api/admin/rooms');
+  const sel = document.getElementById('contractRoomSelect');
+  sel.innerHTML = rooms.map(r => `<option value="${r.id}" data-rent="${r.monthly_rent}">${r.room_code||r.room_number} ${r.tenant_name?'— '+r.tenant_name:''}</option>`).join('');
+  sel.addEventListener('change', () => {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) document.querySelector('#contractForm [name=monthly_rent]').value = opt.dataset.rent || '';
+  });
+  // default dates
+  const now = new Date();
+  const end = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+  document.querySelector('#contractForm [name=start_date]').value = now.toISOString().slice(0,10);
+  document.querySelector('#contractForm [name=end_date]').value = end.toISOString().slice(0,10);
+  if (sel.options.length) document.querySelector('#contractForm [name=monthly_rent]').value = sel.options[0].dataset.rent || '';
+  openModal('contractModal');
+}
+
+async function editContract(id) {
+  const c = await api(`/api/admin/contracts/${id}`);
+  document.getElementById('contractModalTitle').textContent = 'แก้ไขสัญญา ' + c.contract_number;
+  document.getElementById('contractId').value = c.id;
+  const rooms = await api('/api/admin/rooms');
+  const sel = document.getElementById('contractRoomSelect');
+  sel.innerHTML = rooms.map(r => `<option value="${r.id}" data-rent="${r.monthly_rent}" ${r.id===c.room_id?'selected':''}>${r.room_code||r.room_number}</option>`).join('');
+  const f = document.getElementById('contractForm');
+  ['contract_number','tenant_name','tenant_id_card','tenant_phone','tenant_address','start_date','end_date','monthly_rent','deposit_amount','payment_due_day','custom_terms','status'].forEach(k => {
+    if (f[k]) f[k].value = c[k] !== null ? c[k] : '';
+  });
+  openModal('contractModal');
+}
+
+document.getElementById('contractForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('contractId').value;
+  const data = Object.fromEntries(new FormData(e.target));
+  try {
+    if (id) await api(`/api/admin/contracts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    else await api('/api/admin/contracts', { method: 'POST', body: JSON.stringify(data) });
+    closeModal('contractModal'); loadContracts();
+  } catch(err) { alert(err.message); }
+});
+
+async function deleteContract(id) {
+  if (!confirm('ลบสัญญานี้?')) return;
+  try { await api(`/api/admin/contracts/${id}`, { method: 'DELETE' }); loadContracts(); } catch(err) { alert(err.message); }
+}
+
+let _tmplRawMode = false;
+async function openTemplateEditor() {
+  const t = await api('/api/admin/contracts/template');
+  _tmplRawMode = false;
+  const editor = document.getElementById('templateEditor');
+  const rawArea = document.getElementById('templateRaw');
+  // Convert plain text to HTML (preserve line breaks)
+  const html = (t.body || '').replace(/\n/g, '<br>');
+  editor.innerHTML = html;
+  editor.classList.remove('hidden');
+  rawArea.classList.add('hidden');
+  document.getElementById('tmplRawBtn').classList.remove('bg-line','text-white');
+  document.getElementById('tmplRawBtn').classList.add('bg-gray-200','text-gray-600');
+  openModal('templateModal');
+}
+function wysiwyg(cmd, val) {
+  document.getElementById('templateEditor').focus();
+  document.execCommand(cmd, false, val || null);
+}
+function tmplSwitchRaw() {
+  const editor = document.getElementById('templateEditor');
+  const rawArea = document.getElementById('templateRaw');
+  const btn = document.getElementById('tmplRawBtn');
+  _tmplRawMode = !_tmplRawMode;
+  if (_tmplRawMode) {
+    rawArea.value = editor.innerHTML;
+    editor.classList.add('hidden');
+    rawArea.classList.remove('hidden');
+    btn.classList.remove('bg-gray-200','text-gray-600');
+    btn.classList.add('bg-line','text-white');
+  } else {
+    editor.innerHTML = rawArea.value;
+    rawArea.classList.add('hidden');
+    editor.classList.remove('hidden');
+    btn.classList.add('bg-gray-200','text-gray-600');
+    btn.classList.remove('bg-line','text-white');
+  }
+}
+async function saveTemplate() {
+  const editor = document.getElementById('templateEditor');
+  const rawArea = document.getElementById('templateRaw');
+  // Get content as plain text (replace br/p tags with newlines)
+  let body;
+  if (_tmplRawMode) {
+    body = rawArea.value;
+  } else {
+    body = editor.innerHTML
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+  }
+  try {
+    await api('/api/admin/contracts/template', { method: 'PUT', body: JSON.stringify({ body }) });
+    alert('บันทึก Template แล้ว!');
+    closeModal('templateModal');
+  } catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+async function loadSettings() {
+  try {
+    const dorm = await api('/api/admin/dormitory');
+    [document.getElementById('dormForm'), document.getElementById('lineForm')].forEach(form => {
+      if (!form) return;
+      Object.keys(dorm).forEach(k => { if (form[k]) form[k].value = dorm[k] || ''; });
+    });
+  } catch(err) { console.error(err); }
+}
+document.getElementById('dormForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try { await api('/api/admin/dormitory', { method: 'PUT', body: JSON.stringify(data) }); alert('บันทึกแล้ว!'); }
+  catch(err) { alert(err.message); }
+});
+document.getElementById('lineForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try { await api('/api/admin/dormitory', { method: 'PUT', body: JSON.stringify(data) }); alert('บันทึก LINE Config แล้ว!'); }
+  catch(err) { alert(err.message); }
+});
+
+// ============================================================
+// ACCOUNT (LINE link + password)
+// ============================================================
+async function loadAccount() {
+  try {
+    const s = await api('/api/admin/account/line-status');
+    const el = document.getElementById('lineLinkStatus');
+    if (s.linked) {
+      el.innerHTML = `<div class="flex items-center gap-3 text-green-700">
+        <i class="ph-fill ph-check-circle text-2xl"></i>
+        <div>
+          <p class="font-semibold">ผูก LINE แล้ว</p>
+          <p class="text-xs text-gray-500">เมื่อ ${new Date(s.linked_at).toLocaleString('th-TH')}</p>
+        </div>
+      </div>`;
+      document.getElementById('genLinkBtn').textContent = 'สร้างลิงก์ใหม่ (จะแทนที่ของเดิม)';
+    } else {
+      el.innerHTML = `<div class="flex items-center gap-3 text-gray-500"><i class="ph ph-circle-dashed text-2xl"></i><div><p class="font-semibold">ยังไม่ได้ผูก LINE</p><p class="text-xs">สร้างลิงก์ด้านล่างเพื่อผูก</p></div></div>`;
+      document.getElementById('genLinkBtn').textContent = 'สร้างลิงก์เพื่อผูก LINE';
+    }
+  } catch(err) { console.error(err); }
+}
+
+async function generateAdminLinkToken() {
+  try {
+    const r = await api('/api/admin/account/line-link-token', { method: 'POST' });
+    adminLinkUrl = r.url;
+    document.getElementById('adminLinkUrl').textContent = r.url;
+    document.getElementById('adminLinkResult').classList.remove('hidden');
+  } catch(err) { alert(err.message); }
+}
+function copyAdminLink() { navigator.clipboard.writeText(adminLinkUrl).then(() => alert('คัดลอกแล้ว!')); }
+
+document.getElementById('passwordForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try { await api('/api/admin/account/password', { method: 'PUT', body: JSON.stringify(data) }); alert('เปลี่ยนรหัสผ่านสำเร็จ!'); e.target.reset(); }
+  catch(err) { alert(err.message); }
+});
+
+// ============================================================
+// FINANCE
+// ============================================================
+async function loadFinance() {
+  const from = document.getElementById('fnFrom').value;
+  const to = document.getElementById('fnTo').value;
+  const type = document.getElementById('fnType').value;
+  const params = new URLSearchParams({ from, to, type });
+  const txs = await api(`/api/admin/finance/transactions?${params}`);
+  const totalIn = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalEx = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('financeStats').innerHTML = `
+    ${statCard('รายรับรวม','฿'+fmt(totalIn),'text-green-600','ph-arrow-circle-up','bg-green-50 text-green-600','')}
+    ${statCard('รายจ่ายรวม','฿'+fmt(totalEx),'text-red-500','ph-arrow-circle-down','bg-red-50 text-red-500','')}
+    ${statCard('กำไรสุทธิ','฿'+fmt(totalIn-totalEx),(totalIn-totalEx)>=0?'text-green-700':'text-red-600','ph-money','bg-blue-50 text-blue-600','')}
+  `;
+  document.getElementById('financeList').innerHTML = txs.length === 0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ไม่มีรายการ</div>' : txs.map(t => `
+    <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center ${t.type==='income'?'bg-green-50 text-green-600':'bg-red-50 text-red-500'}">
+          <i class="ph ${t.type==='income'?'ph-arrow-up':'ph-arrow-down'} text-xl"></i>
+        </div>
+        <div>
+          <p class="font-medium text-sm">${t.description||t.category}</p>
+          <p class="text-xs text-gray-400">${t.transaction_date} • ${t.category}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <p class="font-bold ${t.type==='income'?'text-green-600':'text-red-500'}">฿${fmt(t.amount)}</p>
+        ${t.reference_type==='bill'
+          ? `<span class="text-xs text-gray-400 flex items-center gap-1" title="รายการนำเข้าจากบิล — ไม่สามารถลบได้"><i class="ph ph-lock"></i> บิล</span>`
+          : `<button onclick="deleteTx(${t.id})" class="text-red-400 hover:text-red-600 text-xs" title="ลบรายการ"><i class="ph ph-trash"></i></button>`}
+      </div>
+    </div>
+  `).join('');
+}
+async function openTxModal() {
+  const cats = await api('/api/admin/finance/categories');
+  document.getElementById('txForm').reset();
+  document.querySelector('#txForm [name=transaction_date]').value = new Date().toISOString().slice(0,10);
+  const refreshCats = () => {
+    const type = document.getElementById('txType').value;
+    document.getElementById('txCategory').innerHTML = (type==='income'?cats.income:cats.expense).map(c=>`<option value="${c}">${c}</option>`).join('');
+  };
+  document.getElementById('txType').onchange = refreshCats;
+  refreshCats();
+  openModal('txModal');
+}
+document.getElementById('txForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try { await api('/api/admin/finance/transactions', { method:'POST', body: JSON.stringify(data) }); closeModal('txModal'); loadFinance(); } catch(err){ alert(err.message); }
+});
+async function deleteTx(id) {
+  if (!confirm('ลบรายการ?')) return;
+  await api(`/api/admin/finance/transactions/${id}`, { method:'DELETE' });
+  loadFinance();
+}
+
+// ============================================================
+// ANALYTICS
+// ============================================================
+function populateYears(selId, count=3) {
+  const y = new Date().getFullYear();
+  document.getElementById(selId).innerHTML = Array.from({length:count}, (_,i)=>`<option value="${y-i}">${y-i}</option>`).join('');
+}
+async function loadAnalytics() {
+  if (!document.getElementById('analyticsYear').value) populateYears('analyticsYear');
+  const year = document.getElementById('analyticsYear').value || new Date().getFullYear();
+  const a = await api(`/api/admin/finance/analytics?year=${year}`);
+  document.getElementById('analyticsKPI').innerHTML = `
+    ${statCard('รายรับ YTD','฿'+fmt(a.ytd_income),'text-green-600','ph-arrow-up','bg-green-50 text-green-600','')}
+    ${statCard('รายจ่าย YTD','฿'+fmt(a.ytd_expense),'text-red-500','ph-arrow-down','bg-red-50 text-red-500','')}
+    ${statCard('กำไรสุทธิ YTD','฿'+fmt(a.ytd_net),a.ytd_net>=0?'text-green-700':'text-red-600','ph-trend-up','bg-blue-50 text-blue-600','')}
+    ${statCard('Occupancy',Math.round(a.occupancy_rate*100)+'%',a.occupancy_rate>0.7?'text-green-600':'text-orange-500','ph-door','bg-purple-50 text-purple-600',`${a.occupied}/${a.total_rooms} ห้อง`)}
+  `;
+  // monthly bar chart
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const max = Math.max(1, ...Object.values(a.monthly).map(v=>Math.max(v.income, v.expense)));
+  document.getElementById('monthlyChart').innerHTML = Object.entries(a.monthly).map(([k,v],i) => `
+    <div class="grid grid-cols-12 gap-2 items-center text-xs">
+      <div class="col-span-1 text-gray-500">${months[i]}</div>
+      <div class="col-span-5 bg-gray-50 rounded h-6 overflow-hidden"><div class="bg-green-400 h-full text-white text-right pr-2 text-[10px] leading-6" style="width:${(v.income/max)*100}%">${v.income?'฿'+fmt(v.income):''}</div></div>
+      <div class="col-span-5 bg-gray-50 rounded h-6 overflow-hidden"><div class="bg-red-400 h-full text-white text-right pr-2 text-[10px] leading-6" style="width:${(v.expense/max)*100}%">${v.expense?'฿'+fmt(v.expense):''}</div></div>
+      <div class="col-span-1 ${v.net>=0?'text-green-600':'text-red-500'} font-semibold">${v.net?'฿'+fmt(v.net):'-'}</div>
+    </div>
+  `).join('');
+  document.getElementById('topExpense').innerHTML = (a.top_expense_categories||[]).map(c => `
+    <div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+      <span class="font-medium">${c.category}</span>
+      <span class="font-bold text-red-500">฿${fmt(c.total)}</span>
+    </div>
+  `).join('') || '<p class="text-gray-400 text-sm">ยังไม่มีข้อมูล</p>';
+}
+
+// ============================================================
+// TAX
+// ============================================================
+async function loadTax() {
+  if (!document.getElementById('taxYear').value) populateYears('taxYear');
+  const year = document.getElementById('taxYear').value || new Date().getFullYear();
+  const t = await api(`/api/admin/finance/tax-report?year=${year}`);
+  document.getElementById('taxReport').innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
+      <h3 class="font-bold mb-4">${t.dormitory} • ปี ${t.year}</h3>
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="p-4 bg-green-50 rounded-xl"><p class="text-xs text-gray-500">รายได้รวม</p><p class="text-xl font-bold text-green-700">฿${fmt(t.total_income)}</p></div>
+        <div class="p-4 bg-red-50 rounded-xl"><p class="text-xs text-gray-500">รายจ่ายรวม</p><p class="text-xl font-bold text-red-600">฿${fmt(t.total_expense)}</p></div>
+        <div class="p-4 bg-blue-50 rounded-xl"><p class="text-xs text-gray-500">กำไรสุทธิ</p><p class="text-xl font-bold text-blue-700">฿${fmt(t.net_income)}</p></div>
+      </div>
+      <div class="border-t pt-4 space-y-2">
+        <div class="flex justify-between"><span>รายได้ค่าเช่า (สำหรับภาษีโรงเรือน)</span><span class="font-medium">฿${fmt(t.rental_income)}</span></div>
+        <div class="flex justify-between"><span>ภาษีโรงเรือน 12.5%</span><span class="font-medium text-orange-600">฿${fmt(t.estimated_building_tax)}</span></div>
+        <div class="flex justify-between"><span>ภงด.94 ประมาณการ (5%)</span><span class="font-medium text-orange-600">฿${fmt(t.estimated_income_tax)}</span></div>
+        <div class="flex justify-between border-t pt-2"><span class="font-bold">ภาษีทั้งหมด (ประมาณการ)</span><span class="font-bold text-red-600">฿${fmt(t.total_estimated_tax)}</span></div>
+      </div>
+      <p class="text-xs text-gray-400 mt-3">* ตัวเลขประมาณการเท่านั้น โปรดตรวจสอบกับนักบัญชีก่อนยื่นจริง</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h4 class="font-bold mb-3">แยกตามหมวด</h4>
+      <table class="w-full text-sm"><thead class="text-xs text-gray-500 bg-gray-50"><tr><th class="text-left p-2">ประเภท</th><th class="text-left p-2">หมวด</th><th class="text-right p-2">ยอด</th></tr></thead>
+      <tbody class="divide-y">${t.breakdown_by_category.map(b=>`<tr><td class="p-2">${b.type==='income'?'รายรับ':'รายจ่าย'}</td><td class="p-2">${b.category}</td><td class="p-2 text-right ${b.type==='income'?'text-green-600':'text-red-500'} font-semibold">฿${fmt(b.total)}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+}
+
+// ============================================================
+// BANK
+// ============================================================
+async function loadBank() {
+  const list = await api('/api/admin/finance/bank-statements');
+  document.getElementById('bankList').innerHTML = list.length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มี Statement — นำเข้า CSV เพื่อเริ่ม</div>' : list.map(s => `
+    <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+      <div>
+        <p class="font-medium text-sm">${s.description||'-'}</p>
+        <p class="text-xs text-gray-400">${s.statement_date} • Ref: ${s.reference||'-'}</p>
+        ${s.matched_payment_id ? `<p class="text-xs text-green-600 mt-1"><i class="ph ph-check-circle"></i> จับคู่กับห้อง ${s.room_code||s.room_number} • บิล ${s.billing_month}</p>` : `<p class="text-xs text-orange-500 mt-1"><i class="ph ph-warning"></i> ยังไม่จับคู่</p>`}
+      </div>
+      <p class="font-bold ${s.amount>=0?'text-green-600':'text-red-500'}">฿${fmt(s.amount)}</p>
+    </div>
+  `).join('');
+}
+function openImportBankModal() { openModal('importBankModal'); }
+async function submitBankCsv() {
+  const text = document.getElementById('bankCsv').value.trim();
+  const rows = text.split('\n').map(line => {
+    const [date,description,amount,balance,reference] = line.split(',').map(s=>s.trim());
+    return { date, description, amount, balance, reference };
+  });
+  await api('/api/admin/finance/bank-statements', { method:'POST', body: JSON.stringify({ rows }) });
+  closeModal('importBankModal'); loadBank();
+}
+async function autoMatchBank() {
+  const r = await api('/api/admin/finance/bank-statements/auto-match', { method:'POST' });
+  alert(`ตรวจ ${r.checked} • จับคู่ ${r.matched}`);
+  loadBank();
+}
+
+// ============================================================
+// OWNER STATEMENT
+// ============================================================
+async function loadOwnerStmt() {
+  if (!document.getElementById('ownerYear').value) {
+    populateYears('ownerYear');
+    document.getElementById('ownerMonth').innerHTML = Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i+1===new Date().getMonth()+1?'selected':''}>เดือน ${i+1}</option>`).join('');
+  }
+  const y = document.getElementById('ownerYear').value;
+  const m = document.getElementById('ownerMonth').value;
+  const s = await api(`/api/admin/finance/owner-statement?year=${y}&month=${m}`);
+  document.getElementById('ownerStmtView').innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-3xl">
+      <div class="text-center mb-6 pb-4 border-b">
+        <h3 class="text-xl font-bold">${s.dormitory}</h3>
+        <p class="text-gray-500 text-sm">รายงานผลประกอบการเดือน ${s.period}</p>
+      </div>
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="p-4 bg-blue-50 rounded-xl text-center"><p class="text-xs text-gray-500">Occupancy</p><p class="text-2xl font-bold text-blue-700">${Math.round(s.occupancy_rate*100)}%</p><p class="text-xs">${s.occupied}/${s.total_rooms}</p></div>
+        <div class="p-4 bg-green-50 rounded-xl text-center"><p class="text-xs text-gray-500">รายได้ค่าเช่าที่ชำระแล้ว</p><p class="text-2xl font-bold text-green-700">฿${fmt(s.rental_revenue_paid)}</p></div>
+        <div class="p-4 ${s.net_profit>=0?'bg-emerald-50':'bg-red-50'} rounded-xl text-center"><p class="text-xs text-gray-500">กำไรสุทธิ</p><p class="text-2xl font-bold ${s.net_profit>=0?'text-emerald-700':'text-red-600'}">฿${fmt(s.net_profit)}</p></div>
+      </div>
+      <div class="grid grid-cols-2 gap-6">
+        <div><h4 class="font-bold mb-2 text-green-700">รายรับ ฿${fmt(s.total_income)}</h4>
+          <div class="space-y-1">${s.income_breakdown.map(i=>`<div class="flex justify-between p-2 bg-green-50/50 rounded"><span>${i.category}</span><span class="font-semibold">฿${fmt(i.total)}</span></div>`).join('')||'<p class="text-gray-400 text-sm">ไม่มีข้อมูล</p>'}</div>
+        </div>
+        <div><h4 class="font-bold mb-2 text-red-600">รายจ่าย ฿${fmt(s.total_expense)}</h4>
+          <div class="space-y-1">${s.expense_breakdown.map(i=>`<div class="flex justify-between p-2 bg-red-50/50 rounded"><span>${i.category}</span><span class="font-semibold">฿${fmt(i.total)}</span></div>`).join('')||'<p class="text-gray-400 text-sm">ไม่มีข้อมูล</p>'}</div>
+        </div>
+      </div>
+      <button onclick="window.print()" class="mt-6 w-full bg-line text-white py-3 rounded-xl font-semibold"><i class="ph ph-printer"></i> พิมพ์ / บันทึก PDF</button>
+    </div>`;
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+let _calYear = new Date().getFullYear(), _calMonth = new Date().getMonth();
+let _calView = 'grid', _calEvents = [];
+const _calThMonths = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function setCalView(v) {
+  _calView = v;
+  document.getElementById('calGridView').classList.toggle('hidden', v !== 'grid');
+  document.getElementById('calListView').classList.toggle('hidden', v !== 'list');
+  document.getElementById('calViewGrid').className = `px-4 py-1.5 rounded-lg text-sm font-semibold transition ${v==='grid'?'bg-white shadow text-line':'text-gray-600'}`;
+  document.getElementById('calViewList').className = `px-4 py-1.5 rounded-lg text-sm font-semibold transition ${v==='list'?'bg-white shadow text-line':'text-gray-600'}`;
+  renderCalendar();
+}
+function calNav(delta) { _calMonth += delta; if (_calMonth > 11) { _calMonth = 0; _calYear++; } else if (_calMonth < 0) { _calMonth = 11; _calYear--; } loadCalendar(); }
+function calGoToday() { _calYear = new Date().getFullYear(); _calMonth = new Date().getMonth(); loadCalendar(); }
+
+async function loadCalendar() {
+  const firstDay = new Date(_calYear, _calMonth, 1);
+  const lastDay = new Date(_calYear, _calMonth + 1, 0);
+  const from = firstDay.toISOString().slice(0,10);
+  const to = lastDay.toISOString().slice(0,10);
+  _calEvents = await api(`/api/admin/calendar/events?from=${from}&to=${to}`);
+  document.getElementById('calMonthLabel').textContent = `${_calThMonths[_calMonth]} ${_calYear + 543}`;
+  // Initialize view toggle state
+  document.getElementById('calViewGrid').className = `px-4 py-1.5 rounded-lg text-sm font-semibold transition ${_calView==='grid'?'bg-white shadow text-line':'text-gray-600'}`;
+  document.getElementById('calViewList').className = `px-4 py-1.5 rounded-lg text-sm font-semibold transition ${_calView==='list'?'bg-white shadow text-line':'text-gray-600'}`;
+  document.getElementById('calGridView').classList.toggle('hidden', _calView !== 'grid');
+  document.getElementById('calListView').classList.toggle('hidden', _calView !== 'list');
+  renderCalendar();
+}
+
+function renderCalendar() {
+  if (_calView === 'grid') renderCalGrid();
+  else renderCalList();
+}
+
+function renderCalGrid() {
+  const today = new Date().toISOString().slice(0,10);
+  const firstDay = new Date(_calYear, _calMonth, 1);
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  const startDow = firstDay.getDay(); // 0=Sun
+
+  // group events by date
+  const evMap = {};
+  _calEvents.forEach(e => { (evMap[e.event_date] = evMap[e.event_date] || []).push(e); });
+
+  let cells = '';
+  // blank cells before first day
+  for (let i = 0; i < startDow; i++) cells += `<div class="border-r border-b border-gray-50 min-h-[80px] bg-gray-50/30"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${_calYear}-${String(_calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const evs = evMap[dateStr] || [];
+    const isToday = dateStr === today;
+    const dow = (startDow + d - 1) % 7;
+    const isSun = dow === 0, isSat = dow === 6;
+    const textColor = isSun ? 'text-red-500' : isSat ? 'text-blue-500' : 'text-gray-800';
+    cells += `
+      <div class="border-r border-b border-gray-100 min-h-[80px] p-1.5 ${isToday?'bg-line/5':'hover:bg-gray-50'} transition">
+        <div class="flex justify-end mb-1">
+          <span class="w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold ${isToday?'bg-line text-white':textColor}">${d}</span>
+        </div>
+        <div class="space-y-0.5">
+          ${evs.slice(0,3).map(e => {
+            const colors = { reminder:'bg-orange-100 text-orange-700', bill:'bg-blue-100 text-blue-700', contract:'bg-purple-100 text-purple-700', maintenance:'bg-red-100 text-red-700', default:'bg-gray-100 text-gray-600' };
+            const cls = colors[e.event_type] || colors.default;
+            return `<div class="${cls} rounded px-1 py-0.5 text-[10px] truncate cursor-pointer" title="${e.title}" onclick="showDayEvents('${dateStr}')">${e.title}</div>`;
+          }).join('')}
+          ${evs.length > 3 ? `<div class="text-[10px] text-gray-400 pl-1">+${evs.length-3} อื่นๆ</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // trailing blank cells to fill last row
+  const totalCells = startDow + daysInMonth;
+  const trailing = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 0; i < trailing; i++) cells += `<div class="border-r border-b border-gray-50 min-h-[80px] bg-gray-50/30"></div>`;
+
+  document.getElementById('calGrid').innerHTML = cells;
+}
+
+function renderCalList() {
+  const ev = _calEvents;
+  document.getElementById('calListView').innerHTML = ev.length === 0
+    ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ไม่มีกิจกรรมในเดือนนี้</div>'
+    : ev.map(e => `
+      <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-12 text-center">
+            <p class="text-xs text-gray-400">${e.event_date.slice(5,7)}/${e.event_date.slice(8)}</p>
+            <p class="text-sm font-bold">${e.event_time||''}</p>
+          </div>
+          <div>
+            <p class="font-medium">${e.title}</p>
+            ${e.description?`<p class="text-xs text-gray-500">${e.description}</p>`:''}
+            ${e.room_code?`<p class="text-xs text-line"><i class="ph ph-door"></i> ${e.room_code}</p>`:''}
+          </div>
+        </div>
+        <button onclick="deleteEvent(${e.id})" class="text-red-400 hover:text-red-600 text-xs"><i class="ph ph-trash"></i></button>
+      </div>
+    `).join('');
+}
+
+function showDayEvents(dateStr) {
+  const evs = _calEvents.filter(e => e.event_date === dateStr);
+  if (!evs.length) return;
+  alert(evs.map(e => `• ${e.title}${e.description?'\n  '+e.description:''}`).join('\n'));
+}
+function openEventModal() {
+  document.getElementById('eventForm').reset();
+  document.querySelector('#eventForm [name=event_date]').value = new Date().toISOString().slice(0,10);
+  openModal('eventModal');
+}
+document.getElementById('eventForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  await api('/api/admin/calendar/events', { method:'POST', body: JSON.stringify(data) });
+  closeModal('eventModal'); loadCalendar();
+});
+async function deleteEvent(id) {
+  if (!confirm('ลบกิจกรรม?')) return;
+  await api(`/api/admin/calendar/events/${id}`, { method:'DELETE' });
+  loadCalendar();
+}
+async function generateReminders() {
+  const r = await api('/api/admin/calendar/generate-reminders', { method:'POST' });
+  alert(`สร้าง ${r.generated} reminders`);
+  loadCalendar();
+}
+
+// ============================================================
+// INSPECTIONS
+// ============================================================
+async function loadInspections() {
+  const list = await api('/api/admin/inspections');
+  document.getElementById('inspectionsList').innerHTML = list.length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มีบันทึก</div>' : list.map(i => `
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="font-bold">ห้อง ${i.room_code||i.room_number}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full ${i.type==='move_in'?'bg-blue-100 text-blue-700':'bg-orange-100 text-orange-700'}">${i.type==='move_in'?'ตรวจรับ':'ตรวจคืน'}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${i.status==='completed'?'badge-paid':'badge-pending'}">${i.status==='completed'?'บันทึกแล้ว':'ร่าง'}</span>
+        </div>
+        <p class="text-sm text-gray-500">วันที่ ${i.inspection_date} • ${i.tenant_name||'-'}</p>
+        <p class="text-xs text-gray-400">มิเตอร์ น้ำ ${i.water_meter||'-'} | ไฟ ${i.electric_meter||'-'} • หักเสียหาย ฿${fmt(i.total_deduction)}</p>
+      </div>
+      <button onclick="deleteInspection(${i.id})" class="text-red-500 text-xs"><i class="ph ph-trash"></i></button>
+    </div>
+  `).join('');
+}
+async function openInspectionModal() {
+  const rooms = await api('/api/admin/rooms');
+  document.getElementById('insRoomSelect').innerHTML = rooms.map(r=>`<option value="${r.id}">${r.room_code||r.room_number}</option>`).join('');
+  document.querySelector('#inspectionForm [name=inspection_date]').value = new Date().toISOString().slice(0,10);
+  document.getElementById('damagesList').innerHTML = '';
+  window._damages = [];
+  openModal('inspectionModal');
+}
+function addDamage() {
+  window._damages = window._damages || [];
+  const idx = window._damages.length;
+  window._damages.push({ item:'', cost:0 });
+  const div = document.createElement('div');
+  div.className = 'flex gap-2';
+  div.innerHTML = `<input class="input flex-1" placeholder="รายการ (เช่น แอร์เสีย)" oninput="window._damages[${idx}].item=this.value"><input type="number" class="input w-32" placeholder="฿" oninput="window._damages[${idx}].cost=parseFloat(this.value)||0"><button type="button" class="text-red-500" onclick="this.parentNode.remove()"><i class='ph ph-trash'></i></button>`;
+  document.getElementById('damagesList').appendChild(div);
+}
+document.getElementById('inspectionForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  data.damages = window._damages || [];
+  await api('/api/admin/inspections', { method:'POST', body: JSON.stringify(data) });
+  closeModal('inspectionModal'); loadInspections();
+});
+async function deleteInspection(id) {
+  if (!confirm('ลบ?')) return;
+  await api(`/api/admin/inspections/${id}`, { method:'DELETE' });
+  loadInspections();
+}
+
+// ============================================================
+// ASSETS
+// ============================================================
+async function loadAssets() {
+  const list = await api('/api/admin/assets');
+  // group by room
+  const byRoom = {};
+  for (const a of list) {
+    const k = a.room_code || a.room_number;
+    byRoom[k] = byRoom[k] || [];
+    byRoom[k].push(a);
+  }
+  document.getElementById('assetsList').innerHTML = Object.keys(byRoom).length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มีทรัพย์สิน</div>' :
+    Object.entries(byRoom).map(([room,items]) => `
+      <div class="bg-white rounded-2xl border border-gray-100 p-5">
+        <h4 class="font-bold mb-3">ห้อง ${room}</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+          ${items.map(a => `<div class="flex justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p class="font-medium text-sm">${a.name}</p>
+              <p class="text-xs text-gray-400">${a.category||''} ${a.condition?'• '+a.condition:''}</p>
+            </div>
+            <button onclick="deleteAsset(${a.id})" class="text-red-500"><i class="ph ph-trash"></i></button>
+          </div>`).join('')}
+        </div>
+      </div>
+    `).join('');
+}
+async function openAssetModal() {
+  const rooms = await api('/api/admin/rooms');
+  document.getElementById('assetRoomSelect').innerHTML = rooms.map(r=>`<option value="${r.id}">${r.room_code||r.room_number}</option>`).join('');
+  document.getElementById('assetForm').reset();
+  openModal('assetModal');
+}
+document.getElementById('assetForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  await api('/api/admin/assets', { method:'POST', body: JSON.stringify(data) });
+  closeModal('assetModal'); loadAssets();
+});
+async function deleteAsset(id) {
+  if (!confirm('ลบ?')) return;
+  await api(`/api/admin/assets/${id}`, { method:'DELETE' });
+  loadAssets();
+}
+
+// ============================================================
+// VENDORS
+// ============================================================
+async function loadVendors() {
+  const list = await api('/api/admin/vendors');
+  document.getElementById('vendorsList').innerHTML = list.length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มี vendor</div>' : list.map(v => `
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between">
+      <div>
+        <p class="font-bold">${v.name} ${v.rating?'⭐'.repeat(v.rating):''}</p>
+        <p class="text-sm text-gray-500">${v.category||'-'} • ${v.phone||'-'}</p>
+        <p class="text-xs text-gray-400">งานทั้งหมด ${v.job_count} • จ่ายไป ฿${fmt(v.total_paid)}</p>
+      </div>
+      <button onclick="deleteVendor(${v.id})" class="text-red-500"><i class="ph ph-trash"></i></button>
+    </div>
+  `).join('');
+}
+function openVendorModal() {
+  document.getElementById('vendorForm').reset();
+  document.getElementById('vendorId').value = '';
+  openModal('vendorModal');
+}
+document.getElementById('vendorForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  await api('/api/admin/vendors', { method:'POST', body: JSON.stringify(data) });
+  closeModal('vendorModal'); loadVendors();
+});
+async function deleteVendor(id) {
+  if (!confirm('ลบ?')) return;
+  await api(`/api/admin/vendors/${id}`, { method:'DELETE' });
+  loadVendors();
+}
+
+// ============================================================
+// MOVE-OUT
+// ============================================================
+async function loadMoveOut() {
+  const list = await api('/api/admin/move-out');
+  const navBadge = document.getElementById('navMoveOutBadge');
+  const pending = list.filter(m=>m.status==='pending').length;
+  if (pending>0) { navBadge.textContent=pending; navBadge.classList.remove('hidden'); } else navBadge.classList.add('hidden');
+  document.getElementById('moveOutList').innerHTML = list.length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ไม่มีคำขอ</div>' : list.map(m => `
+    <div class="bg-white rounded-2xl border border-gray-100 p-5">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <p class="font-bold">ห้อง ${m.room_code||m.room_number} • ${m.display_name||'-'}</p>
+          <p class="text-sm text-gray-500">ขอย้ายวันที่ ${m.requested_date}</p>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full ${m.status==='pending'?'badge-pending':m.status==='approved'?'bg-blue-100 text-blue-700':m.status==='completed'?'badge-paid':'bg-gray-100'}">${m.status}</span>
+      </div>
+      ${m.reason?`<p class="text-sm text-gray-700 my-2">📝 ${m.reason}</p>`:''}
+      ${m.status==='pending'?`<div class="flex gap-2 mt-3">
+        <button onclick="updateMoveOut(${m.id},'approved')" class="bg-line text-white px-4 py-2 rounded-lg text-sm">อนุมัติ</button>
+        <button onclick="updateMoveOut(${m.id},'rejected')" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm">ปฏิเสธ</button>
+      </div>`:''}
+      ${m.status==='approved'?`<button onclick="updateMoveOut(${m.id},'completed')" class="bg-line text-white px-4 py-2 rounded-lg text-sm mt-3">มาร์คว่าย้ายออกแล้ว</button>`:''}
+    </div>
+  `).join('');
+}
+async function updateMoveOut(id, status) {
+  let note = '';
+  if (status==='rejected') { note = prompt('เหตุผล:')||''; }
+  await api(`/api/admin/move-out/${id}`, { method:'PUT', body: JSON.stringify({ status, admin_note: note }) });
+  loadMoveOut();
+}
+
+// ============================================================
+// BLACKLIST
+// ============================================================
+async function loadBlacklist() {
+  const list = await api('/api/admin/blacklist');
+  document.getElementById('blacklistList').innerHTML = list.length===0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ไม่มีในรายชื่อ</div>' : list.map(b => `
+    <div class="bg-white rounded-xl border border-gray-100 p-4 flex justify-between items-start">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="font-bold">${b.full_name}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full ${b.severity==='high'?'badge-overdue':b.severity==='medium'?'badge-pending':'bg-gray-100'}">${b.severity}</span>
+        </div>
+        <p class="text-xs text-gray-500">บัตรปชช. ${b.id_card||'-'} • ${b.phone||'-'}</p>
+        <p class="text-sm text-gray-700 mt-2">${b.reason}</p>
+      </div>
+      <button onclick="removeBlacklist(${b.id})" class="text-red-500"><i class="ph ph-trash"></i></button>
+    </div>
+  `).join('');
+}
+function openBlacklistModal() { document.getElementById('blacklistForm').reset(); openModal('blacklistModal'); }
+document.getElementById('blacklistForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  await api('/api/admin/blacklist', { method:'POST', body: JSON.stringify(data) });
+  closeModal('blacklistModal'); loadBlacklist();
+});
+async function removeBlacklist(id) {
+  if (!confirm('ลบ?')) return;
+  await api(`/api/admin/blacklist/${id}`, { method:'DELETE' });
+  loadBlacklist();
+}
+
+// ============================================================
+// PROPERTIES (Multi-Property)
+// ============================================================
+async function loadProperties() {
+  const list = await api('/api/admin/properties');
+  document.getElementById('propertiesList').innerHTML = list.map(p => `
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 ${p.is_default?'ring-2 ring-line':''}">
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <p class="font-bold text-lg">${p.name}</p>
+          <p class="text-xs text-gray-500">${p.address||''}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 mt-1 inline-block">${p.role}</span>
+          ${p.is_default?'<span class="text-xs px-2 py-0.5 rounded-full bg-line/10 text-line ml-1">ใช้งานอยู่</span>':''}
+        </div>
+      </div>
+      ${!p.is_default?`<button onclick="switchProperty(${p.id})" class="w-full bg-line text-white py-2 rounded-lg text-sm">สลับมาใช้หอนี้</button>`:''}
+    </div>
+  `).join('');
+}
+function openPropertyModal() { document.getElementById('propertyForm').reset(); openModal('propertyModal'); }
+document.getElementById('propertyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  await api('/api/admin/properties', { method:'POST', body: JSON.stringify(data) });
+  closeModal('propertyModal'); loadProperties();
+});
+async function switchProperty(id) {
+  await api(`/api/admin/properties/${id}/switch`, { method:'POST' });
+  location.reload();
+}
+
+// ============================================================
+// LICENSE
+// ============================================================
+async function loadLicense() {
+  const lic = await api('/api/admin/license');
+  document.getElementById('licenseStats').innerHTML = `
+    ${statCard('โควต้าทั้งหมด', lic.quota+' ห้อง', 'text-line', 'ph-certificate', 'bg-line/10 text-line', 'License ของคุณ')}
+    ${statCard('ใช้ไปแล้ว', lic.used+' ห้อง', 'text-blue-600', 'ph-door', 'bg-blue-50 text-blue-600', '')}
+    ${statCard('คงเหลือ', lic.available+' ห้อง', lic.available>0?'text-green-600':'text-red-500', 'ph-plus-circle', 'bg-green-50 text-green-600', lic.available===0?'หมดโควต้า — อัปเกรด':'พร้อมเพิ่มห้อง')}
+  `;
+  // quota display (read-only — ปรับได้เฉพาะผู้ดูแลระบบ/developer)
+  document.getElementById('quotaDisplay').textContent = lic.quota;
+  document.querySelector('#licenseForm [name=rent_due_day]').value = lic.rent_due_day;
+  document.querySelector('#licenseForm [name=rent_proration_enabled]').checked = lic.rent_proration_enabled;
+}
+document.getElementById('licenseForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = {
+    rent_due_day: parseInt(fd.get('rent_due_day')),
+    rent_proration_enabled: fd.has('rent_proration_enabled')
+  };
+  await api('/api/admin/license', { method:'PUT', body: JSON.stringify(data) });
+  alert('บันทึกแล้ว!');
+  loadLicense();
+});
+
+// ============================================================
+// PRORATE CALCULATOR
+// ============================================================
+async function loadProrate() {
+  const rooms = await api('/api/admin/rooms');
+  const lic = await api('/api/admin/license');
+  document.getElementById('prorateRoom').innerHTML = '<option value="">— เลือกห้อง (กรอกค่าเช่าเองก็ได้) —</option>' +
+    rooms.map(r => `<option value="${r.id}" data-rent="${r.monthly_rent}">${r.room_code||r.room_number} • ฿${fmt(r.monthly_rent)}/เดือน</option>`).join('');
+  document.querySelector('#prorateForm [name=move_in_date]').value = new Date().toISOString().slice(0,10);
+  document.querySelector('#prorateForm [name=due_day]').value = lic.rent_due_day || 5;
+}
+document.getElementById('prorateRoom').addEventListener('change', e => {
+  const opt = e.target.options[e.target.selectedIndex];
+  if (opt && opt.dataset.rent) document.querySelector('#prorateForm [name=monthly_rent]').value = opt.dataset.rent;
+});
+document.getElementById('prorateForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const r = await api('/api/admin/proration/calculate', { method:'POST', body: JSON.stringify(data) });
+  if (r.error) { alert(r.error); return; }
+  document.getElementById('prorateResult').innerHTML = `
+    <div class="w-full text-center">
+      <p class="text-sm text-gray-500 mb-1">ค่าเช่าเดือนแรก</p>
+      <p class="text-5xl font-extrabold text-line mb-2">฿${fmt(r.prorated_amount)}</p>
+      ${r.is_partial ? `<p class="text-xs text-gray-500 mb-4">${r.breakdown}</p>` : '<p class="text-xs text-orange-500 mb-4">เข้าอยู่วันแรกของเดือน — ไม่ต้องเฉลี่ย</p>'}
+      <div class="bg-white rounded-xl p-4 text-left text-sm space-y-2 shadow-sm">
+        <div class="flex justify-between"><span class="text-gray-500">ค่าเช่าเต็มเดือน</span><span class="font-semibold">฿${fmt(r.full_month_amount)}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ค่าเช่าเฉลี่ย/วัน</span><span class="font-semibold">฿${fmt(r.daily_rate)}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">วันที่อยู่ในเดือน</span><span class="font-semibold">${r.days_remaining}/${r.days_total} วัน</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">งวดครอบคลุม</span><span class="font-semibold">${r.period_start} → ${r.period_end}</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ครบกำหนดชำระ</span><span class="font-semibold">${r.first_due_date}</span></div>
+        ${r.saving > 0 ? `<div class="flex justify-between text-green-600 border-t pt-2"><span>ส่วนลดจากการเข้าอยู่กลางเดือน</span><span class="font-bold">฿${fmt(r.saving)}</span></div>` : ''}
+      </div>
+    </div>`;
+});
+
+// ============================================================
+// OPERATOR PERMISSIONS
+// ============================================================
+async function loadOperatorPerms() {
+  const labels = await api('/api/admin/operator-perms/labels');
+  const list = await api('/api/admin/operator-perms');
+  document.getElementById('operatorPermsList').innerHTML = list.map(p => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="font-bold text-gray-900">${p.name}</p>
+          <p class="text-xs text-gray-500">${p.email} • <span class="font-semibold">${p.role}</span></p>
+        </div>
+        <button onclick="saveOperatorPerms(${p.admin_user_id})" class="bg-line text-white px-4 py-2 rounded-lg text-sm font-semibold">บันทึก</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        ${labels.keys.map(k => `<label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+          <input type="checkbox" data-uid="${p.admin_user_id}" data-key="${k}" class="op-perm w-4 h-4" ${p[k]?'checked':''}>
+          <span class="text-sm">${labels.labels[k]}</span>
+        </label>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+async function saveOperatorPerms(uid) {
+  const data = {};
+  document.querySelectorAll(`.op-perm[data-uid="${uid}"]`).forEach(cb => { data[cb.dataset.key] = cb.checked; });
+  await api(`/api/admin/operator-perms/${uid}`, { method:'PUT', body: JSON.stringify(data) });
+  alert('บันทึกสิทธิ์แล้ว');
+}
+
+// ============================================================
+// SETUP WIZARD
+// ============================================================
+async function loadSetupWizard() {
+  try {
+    const s = await api('/api/admin/setup-state');
+    const pct = Math.round(s.progress * 100);
+    document.getElementById('setupProgress').textContent = pct + '%';
+    document.getElementById('setupBar').style.width = pct + '%';
+
+    const stepLabels = {
+      basic_info: { title:'ข้อมูลหอพัก', desc:'ชื่อ + ที่อยู่', goto:'settings', icon:'ph-buildings' },
+      utility_rates: { title:'ค่าน้ำ-ค่าไฟ', desc:'อัตราต่อหน่วย', goto:'settings', icon:'ph-drop' },
+      promptpay: { title:'พร้อมเพย์', desc:'เบอร์ + ชื่อบัญชี', goto:'settings', icon:'ph-qr-code' },
+      line_integration: { title:'LINE Channel', desc:'Channel ID/Secret/Token', goto:'settings', icon:'ph-chat-circle' },
+      charges_configured: { title:'ค่ามัดจำ & รายการเก็บ', desc:'มัดจำห้อง/กุญแจ/อื่นๆ', goto:'charges', icon:'ph-coin' },
+      has_rooms: { title:'เพิ่มห้องพัก', desc:'อย่างน้อย 1 ห้อง', goto:'rooms', icon:'ph-door' }
+    };
+
+    document.getElementById('setupSteps').innerHTML = Object.entries(stepLabels).map(([key, info]) => {
+      const done = s.checks[key];
+      return `<div class="bg-white rounded-2xl shadow-sm border ${done?'border-green-300':'border-gray-100'} p-5 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center ${done?'bg-green-100 text-green-600':'bg-gray-100 text-gray-400'}">
+            <i class="ph ${done?'ph-check-bold':info.icon} text-2xl"></i>
+          </div>
+          <div>
+            <p class="font-bold text-gray-900">${info.title} ${done?'<span class="text-green-600 text-xs ml-2">✓ เสร็จแล้ว</span>':''}</p>
+            <p class="text-sm text-gray-500">${info.desc}</p>
+          </div>
+        </div>
+        ${!done?`<button onclick="navigate('${info.goto}')" class="bg-line text-white px-4 py-2 rounded-lg text-sm">ตั้งค่า →</button>`:''}
+      </div>`;
+    }).join('');
+
+    document.getElementById('setupCta').classList.toggle('hidden', !s.can_use_operator);
+    document.getElementById('setupBadge').classList.toggle('hidden', s.setup_completed);
+  } catch(err) { console.error(err); }
+}
+async function markSetupDone() {
+  await api('/api/admin/setup-state/complete', { method:'POST' });
+  alert('🎉 ตั้งค่าเสร็จสมบูรณ์! คุณสามารถใช้ Operator Mode ได้แล้ว');
+  window.open('/operator', '_blank');
+  loadSetupWizard();
+}
+
+// ============================================================
+// CHARGES
+// ============================================================
+let currentChargeType = 'deposit';
+async function loadCharges(type) {
+  if (type) currentChargeType = type;
+  ['deposit','recurring','onetime'].forEach(t => {
+    const btn = document.getElementById('ctype-' + t);
+    if (btn) btn.className = 'px-4 py-2 rounded-xl text-sm font-medium ' + (t===currentChargeType?'bg-line text-white':'bg-gray-100 text-gray-700');
+  });
+  const list = await api(`/api/admin/charges?type=${currentChargeType}`);
+  const typeLabel = { deposit:'มัดจำ', recurring:'รายเดือน', onetime:'ครั้งเดียว' };
+  document.getElementById('chargesList').innerHTML = list.length === 0 ? '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">ยังไม่มีรายการประเภทนี้</div>' : list.map(c => `
+    <div class="bg-white rounded-2xl shadow-sm border ${c.enabled?'border-gray-100':'border-gray-100 opacity-50'} p-5 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="font-bold text-gray-900">${c.label}</p>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">${c.code}</span>
+          ${c.required?'<span class="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">บังคับ</span>':''}
+          ${c.refundable?'<span class="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-700">คืนได้</span>':''}
+          ${!c.enabled?'<span class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">ปิดใช้งาน</span>':''}
+        </div>
+        <p class="text-sm text-gray-500">${c.description||'-'}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <p class="text-2xl font-bold text-gray-900">฿${fmt(c.amount)}</p>
+        <button onclick='editCharge(${JSON.stringify(c).replace(/'/g,"&#39;")})' class="text-gray-500"><i class="ph ph-pencil-simple text-xl"></i></button>
+        <button onclick="deleteCharge(${c.id})" class="text-red-500"><i class="ph ph-trash text-xl"></i></button>
+      </div>
+    </div>
+  `).join('');
+}
+function openChargeModal() {
+  document.getElementById('chargeForm').reset();
+  document.getElementById('chargeId').value = '';
+  document.getElementById('chargeModalTitle').textContent = 'เพิ่มรายการ';
+  document.querySelector('#chargeForm [name=type]').value = currentChargeType;
+  openModal('chargeModal');
+}
+function editCharge(c) {
+  document.getElementById('chargeId').value = c.id;
+  document.getElementById('chargeModalTitle').textContent = 'แก้ไข: ' + c.label;
+  const f = document.getElementById('chargeForm');
+  f.code.value = c.code; f.label.value = c.label; f.type.value = c.type;
+  f.amount.value = c.amount; f.description.value = c.description||'';
+  f.refundable.checked = !!c.refundable;
+  f.required.checked = !!c.required;
+  f.enabled.checked = !!c.enabled;
+  openModal('chargeModal');
+}
+document.getElementById('chargeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('chargeId').value;
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  data.refundable = fd.has('refundable');
+  data.required = fd.has('required');
+  data.enabled = fd.has('enabled');
+  try {
+    if (id) await api(`/api/admin/charges/${id}`, { method:'PUT', body: JSON.stringify(data) });
+    else await api('/api/admin/charges', { method:'POST', body: JSON.stringify(data) });
+    closeModal('chargeModal'); loadCharges();
+  } catch(err) { alert(err.message); }
+});
+async function deleteCharge(id) {
+  if (!confirm('ลบรายการ?')) return;
+  await api(`/api/admin/charges/${id}`, { method:'DELETE' });
+  loadCharges();
+}
+
+// ============================================================
+// ADMIN USERS (roles)
+// ============================================================
+const ROLE_BADGE = {
+  owner: { label:'👑 เจ้าของหอ', cls:'bg-purple-100 text-purple-700' },
+  admin: { label:'⚙️ ผู้ดูแลระบบ', cls:'bg-blue-100 text-blue-700' },
+  manager: { label:'📋 ผู้จัดการ', cls:'bg-green-100 text-green-700' },
+  technician: { label:'🔧 ช่างซ่อม', cls:'bg-orange-100 text-orange-700' }
+};
+async function loadAdmins() {
+  try {
+    const list = await api('/api/admin/admins');
+    document.getElementById('adminsList').innerHTML = list.map(a => {
+      const r = ROLE_BADGE[a.role] || { label:a.role, cls:'bg-gray-100' };
+      const isMe = a.id === window._currentAdminId;
+      return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+            <i class="ph ph-user text-2xl text-gray-500"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <p class="font-bold text-gray-900">${a.name}</p>
+              ${isMe?'<span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">คุณ</span>':''}
+              <span class="text-xs px-2 py-0.5 rounded-full ${r.cls}">${r.label}</span>
+              ${a.has_line?'<span class="text-xs px-2 py-0.5 rounded-full bg-line/10 text-line">🔗 LINE linked</span>':''}
+            </div>
+            <p class="text-sm text-gray-500">${a.email}</p>
+            <p class="text-xs text-gray-400">เข้าหอตั้งแต่ ${new Date(a.created_at).toLocaleDateString('th-TH')}</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick='editAdminUser(${JSON.stringify(a).replace(/'/g,"\\u0027")})' class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded-lg"><i class="ph ph-pencil-simple"></i> แก้ไข</button>
+          ${!isMe?`<button onclick="deleteAdminUser(${a.id},'${a.name}')" class="text-xs bg-red-50 text-red-600 px-3 py-2 rounded-lg"><i class="ph ph-user-minus"></i> ถอดสิทธิ์</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(err) {
+    if (err.message.includes('owner') || err.message.includes('403')) {
+      document.getElementById('adminsList').innerHTML = '<div class="bg-white rounded-2xl border p-8 text-center text-gray-400">เฉพาะ owner เท่านั้นที่จัดการผู้ดูแลได้</div>';
+    } else alert(err.message);
+  }
+}
+
+function openAdminUserModal() {
+  document.getElementById('adminUserForm').reset();
+  document.getElementById('adminUserId').value = '';
+  document.getElementById('adminUserModalTitle').textContent = 'เพิ่มผู้ดูแลใหม่';
+  document.querySelector('#adminUserForm [name=password]').required = true;
+  openModal('adminUserModal');
+}
+
+function editAdminUser(a) {
+  document.getElementById('adminUserId').value = a.id;
+  document.getElementById('adminUserModalTitle').textContent = 'แก้ไขผู้ดูแล: ' + a.name;
+  const f = document.getElementById('adminUserForm');
+  f.name.value = a.name;
+  f.email.value = a.email;
+  f.email.disabled = true;
+  f.password.value = '';
+  f.password.required = false;
+  f.role.value = a.role;
+  openModal('adminUserModal');
+}
+
+document.getElementById('adminUserForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('adminUserId').value;
+  const data = Object.fromEntries(new FormData(e.target));
+  if (!data.password) delete data.password;
+  try {
+    if (id) {
+      await api(`/api/admin/admins/${id}`, { method:'PUT', body: JSON.stringify(data) });
+    } else {
+      await api('/api/admin/admins', { method:'POST', body: JSON.stringify(data) });
+    }
+    closeModal('adminUserModal');
+    document.querySelector('#adminUserForm [name=email]').disabled = false;
+    loadAdmins();
+  } catch(err) { alert(err.message); }
+});
+
+async function deleteAdminUser(id, name) {
+  if (!confirm(`ถอดสิทธิ์ "${name}" ออกจากหอนี้?`)) return;
+  try { await api(`/api/admin/admins/${id}`, { method:'DELETE' }); loadAdmins(); }
+  catch(err) { alert(err.message); }
+}
+
+// ============================================================
+// LINE FEATURES (Rich Menu + Broadcast)
+// ============================================================
+async function loadLineFeatures() {
+  try {
+    const s = await api('/api/admin/richmenu/status');
+    document.getElementById('rmStatus').innerHTML = `
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-gray-500 text-xs">LINE Token</p>
+          <p class="font-bold ${s.has_token?'text-green-600':'text-red-600'}">${s.has_token?'✅ ตั้งแล้ว':'❌ ยังไม่ได้ตั้ง'}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-gray-500 text-xs">Tenant Menu</p>
+          <p class="font-bold ${s.tenant_menu_id?'text-green-600':'text-gray-400'}">${s.tenant_menu_id?'✅ ติดตั้งแล้ว':'ยังไม่ติดตั้ง'}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-gray-500 text-xs">รูป Tenant</p>
+          <p class="font-bold ${s.has_tenant_image?'text-green-600':'text-gray-400'}">${s.has_tenant_image?'✅ อัปโหลดแล้ว':'ยังไม่อัปโหลด'}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-gray-500 text-xs">รูป Owner</p>
+          <p class="font-bold ${s.has_owner_image?'text-green-600':'text-gray-400'}">${s.has_owner_image?'✅ อัปโหลดแล้ว':'ยังไม่อัปโหลด'}</p>
+        </div>
+      </div>`;
+  } catch(err) { console.error(err); }
+  // preview recipients
+  updateBroadcastPreview();
+}
+async function uploadRichMenu(type) {
+  const file = document.getElementById('rm'+(type==='tenant'?'Tenant':'Owner')+'File').files[0];
+  if (!file) { alert('เลือกไฟล์ก่อน'); return; }
+  const fd = new FormData(); fd.append('image', file);
+  const r = await fetch(`/api/admin/richmenu/upload-image/${type}`, { method:'POST', body: fd });
+  if (r.ok) { alert('อัปโหลดแล้ว'); loadLineFeatures(); }
+  else alert('อัปโหลดไม่สำเร็จ');
+}
+async function installRichMenu() {
+  if (!confirm('ติดตั้ง Rich Menu ขึ้น LINE? (จะแทนที่เมนูเดิมถ้ามี)')) return;
+  try {
+    const r = await api('/api/admin/richmenu/setup', { method:'POST' });
+    alert(`✅ ติดตั้งสำเร็จ!\nTenant: ${r.tenant_menu_id}\nOwner: ${r.owner_menu_id}\n${r.note||''}`);
+    loadLineFeatures();
+  } catch(err) { alert('❌ '+err.message); }
+}
+async function updateBroadcastPreview() {
+  const f = document.getElementById('broadcastForm');
+  if (!f) return;
+  const params = new URLSearchParams();
+  if (f.building.value) params.set('building', f.building.value);
+  if (f.floor.value) params.set('floor', f.floor.value);
+  try {
+    const r = await api('/api/admin/broadcast/preview-recipients?'+params);
+    document.getElementById('bcPreview').innerHTML = `📨 จะส่งให้ <b>${r.count}</b> ห้อง: ${r.recipients.slice(0,5).map(x=>x.room).join(', ')}${r.count>5?` ... +${r.count-5}`:''}`;
+  } catch {}
+}
+document.addEventListener('input', e => {
+  if (['building','floor'].includes(e.target.name) && e.target.closest('#broadcastForm')) updateBroadcastPreview();
+});
+document.getElementById('broadcastForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  try {
+    const r = await api('/api/admin/broadcast/send', { method:'POST', body: JSON.stringify(data) });
+    alert(`✅ ส่งสำเร็จ ${r.sent}/${r.total} ห้อง${r.errors.length?'\n⚠️ ผิดพลาด '+r.errors.length:''}`);
+  } catch(err) { alert('❌ '+err.message); }
+});
+async function sendDashboardNow() {
+  try {
+    const r = await api('/api/admin/broadcast/dashboard-now', { method:'POST' });
+    alert(`✅ ส่ง Dashboard แล้ว ${r.sent||0} คน`);
+  } catch(err) { alert('❌ '+err.message); }
+}
+
+// ============================================================
+// Modal helpers + utils
+// ============================================================
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function fmt(n) { return Number(n||0).toLocaleString('th-TH'); }
+</script>
+</body>
+</html>

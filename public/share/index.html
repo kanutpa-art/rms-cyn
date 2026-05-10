@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ข้อมูลผู้เช่า — RMS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: { colors: { line: '#06C755', brand:'#0A8F4A' }, fontFamily: { sans: ['Prompt','sans-serif'] }}}};
+</script>
+<style>
+body{font-family:'Prompt',sans-serif;background:#f8fafc;}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:none;align-items:flex-end;justify-content:center;}
+.sheet.open{display:flex;}
+.sheet-inner{background:#fff;width:100%;max-width:28rem;border-radius:24px 24px 0 0;max-height:90vh;overflow-y:auto;padding:1.5rem;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.menu-card{transition:all .15s;}
+.menu-card:active{transform:scale(.97);}
+input[type=file]{display:none;}
+</style>
+</head>
+<body class="text-gray-800 max-w-md mx-auto pb-20">
+
+<!-- LOADING -->
+<div id="loading" class="text-center py-20">
+  <div class="inline-block w-8 h-8 border-4 border-line border-t-transparent rounded-full animate-spin mb-3"></div>
+  <p class="text-sm text-gray-500">กำลังโหลด…</p>
+</div>
+
+<!-- ERROR -->
+<div id="errorBox" class="hidden bg-red-50 border-2 border-red-200 rounded-2xl p-6 text-center mt-10 mx-4">
+  <i class="ph-fill ph-warning-circle text-5xl text-red-500"></i>
+  <p class="mt-3 font-bold text-red-700" id="errorMsg">ไม่พบลิงก์ผู้เช่า</p>
+  <p class="text-xs text-red-500 mt-1">โปรดติดต่อผู้ดูแลหอพัก</p>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="content" class="hidden">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-br from-line to-emerald-700 text-white p-6 pb-10">
+    <p class="text-xs opacity-80">ยินดีต้อนรับสู่</p>
+    <h1 class="text-2xl font-bold mt-1" id="hdrDormitory">หอพัก</h1>
+    <div class="mt-3 flex items-center gap-3">
+      <div class="bg-white/20 rounded-2xl px-4 py-2">
+        <p class="text-xs opacity-80">ห้อง</p>
+        <p class="font-bold text-lg" id="hdrRoom">-</p>
+      </div>
+      <div class="flex-1">
+        <p class="text-xs opacity-80">ผู้เช่า</p>
+        <p class="font-semibold" id="hdrTenant">-</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick action menu (LIFF-like) -->
+  <div class="px-4 -mt-6 mb-4">
+    <div class="bg-white rounded-3xl shadow-md p-4 grid grid-cols-4 gap-2">
+      <button onclick="openSheet('paySheet')" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-2xl">💸</div>
+        <p class="text-[11px] font-semibold text-gray-700">ชำระเงิน</p>
+      </button>
+      <button onclick="openSheet('billSheet'); loadBills();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">📋</div>
+        <p class="text-[11px] font-semibold text-gray-700">บิลของฉัน</p>
+      </button>
+      <button onclick="openSheet('maintSheet'); loadMaint();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-2xl">🔧</div>
+        <p class="text-[11px] font-semibold text-gray-700">แจ้งซ่อม</p>
+      </button>
+      <button onclick="openSheet('renewSheet'); loadRenew();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-2xl">📜</div>
+        <p class="text-[11px] font-semibold text-gray-700">ต่อสัญญา</p>
+      </button>
+      <button onclick="openSheet('moveOutSheet'); loadMoveOut();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center text-2xl">🚪</div>
+        <p class="text-[11px] font-semibold text-gray-700">แจ้งย้ายออก</p>
+      </button>
+      <button onclick="openSheet('depositSheet'); loadDeposit();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-2xl">💰</div>
+        <p class="text-[11px] font-semibold text-gray-700">เงินประกัน</p>
+      </button>
+      <button onclick="openSheet('docsSheet'); loadDocs();" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">📄</div>
+        <p class="text-[11px] font-semibold text-gray-700">เอกสาร</p>
+      </button>
+      <button onclick="openSheet('contactSheet')" class="menu-card flex flex-col items-center gap-1 p-2 rounded-xl">
+        <div class="w-12 h-12 bg-line/10 rounded-2xl flex items-center justify-center text-2xl">📞</div>
+        <p class="text-[11px] font-semibold text-gray-700">ติดต่อ</p>
+      </button>
+    </div>
+  </div>
+
+  <div class="px-4 space-y-4">
+    <!-- Tenant info -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2"><i class="ph ph-user-circle text-line text-xl"></i>ข้อมูลผู้เช่า</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-gray-500">ชื่อ</span><span id="tnName" class="font-semibold">-</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">เบอร์โทร</span><span id="tnPhone" class="font-semibold">-</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">วันเข้าอยู่</span><span id="tnMoveIn" class="font-semibold">-</span></div>
+      </div>
+    </div>
+
+    <!-- Contract -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2"><i class="ph ph-file-text text-line text-xl"></i>สัญญาเช่า</h3>
+      <div id="contractBox" class="space-y-2 text-sm"></div>
+    </div>
+
+    <!-- Payment info -->
+    <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-5">
+      <h3 class="font-bold text-emerald-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-bank text-emerald-600 text-xl"></i>ข้อมูลโอนเงิน (PromptPay)</h3>
+      <div class="bg-white rounded-xl p-4 space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-gray-500">พร้อมเพย์</span><span id="payNum" class="font-bold text-emerald-700">-</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ชื่อบัญชี</span><span id="payName" class="font-bold">-</span></div>
+        <div class="flex justify-between border-t pt-2"><span class="text-gray-500">ค่าเช่า/เดือน</span><span id="payRent" class="font-bold text-emerald-700">-</span></div>
+        <div class="flex justify-between"><span class="text-gray-500">ครบกำหนดทุกวันที่</span><span id="payDue" class="font-semibold">-</span></div>
+      </div>
+    </div>
+
+    <!-- Utility rates -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2"><i class="ph ph-drop text-blue-500 text-xl"></i>ค่าน้ำ-ค่าไฟ</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+          <p class="text-xs text-blue-500">ค่าน้ำ/หน่วย</p>
+          <p class="font-bold text-blue-700 text-lg" id="rateWater">-</p>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+          <p class="text-xs text-amber-500">ค่าไฟ/หน่วย</p>
+          <p class="font-bold text-amber-700 text-lg" id="rateElec">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bill list (preview) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2"><i class="ph ph-receipt text-line text-xl"></i>บิลล่าสุด</h3>
+      <div id="billsBox" class="space-y-2"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-xs text-gray-400 mt-6 pb-6">
+      <p id="dormFooter">หอพัก</p>
+      <p class="mt-3 opacity-60">— RMS Tenant Info —</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============= SHEETS ============= -->
+
+<!-- Pay Sheet -->
+<div id="paySheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-1">💸 ส่งสลิปชำระเงิน</h2>
+  <p class="text-xs text-gray-500 mb-4">เลือกบิลที่ต้องการชำระและแนบรูปสลิปโอนเงิน</p>
+  <div id="payBillSelect" class="mb-3"></div>
+  <input type="file" id="paySlipInput" accept="image/*" capture="environment" onchange="onSlipSelected(event)">
+  <label for="paySlipInput" class="flex flex-col items-center justify-center border-2 border-dashed border-line/40 bg-line/5 rounded-2xl p-6 mb-3 cursor-pointer hover:bg-line/10">
+    <i class="ph-fill ph-image text-4xl text-line"></i>
+    <p class="text-sm font-semibold text-line mt-2">📸 ถ่ายรูป / เลือกรูปสลิป</p>
+    <p class="text-xs text-gray-500 mt-1">JPG/PNG ไม่เกิน 5MB</p>
+  </label>
+  <div id="paySlipPreviewBox" class="hidden mb-3 relative">
+    <img id="paySlipPreview" class="w-full max-h-56 object-contain rounded-xl border-2 border-emerald-300 bg-gray-50">
+    <button onclick="clearSlipPreview()" class="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full shadow-lg flex items-center justify-center"><i class="ph ph-x"></i></button>
+  </div>
+  <div class="flex gap-2">
+    <button onclick="closeSheet('paySheet')" class="flex-1 bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ยกเลิก</button>
+    <button onclick="submitSlip()" class="flex-[2] bg-line text-white py-3 rounded-xl font-bold">ส่งสลิป</button>
+  </div>
+</div></div>
+
+<!-- Bill Sheet -->
+<div id="billSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-3">📋 บิลของฉัน</h2>
+  <div id="billListFull" class="space-y-2 mb-4"></div>
+  <button onclick="closeSheet('billSheet')" class="w-full bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ปิด</button>
+</div></div>
+
+<!-- Maintenance Sheet -->
+<div id="maintSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-3">🔧 แจ้งซ่อม / แจ้งเหตุการณ์</h2>
+  <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4">
+    <input id="maintTitle" type="text" placeholder="หัวข้อ (เช่น ก๊อกน้ำรั่ว, ไฟดับ)" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2">
+    <textarea id="maintDesc" placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)" rows="2" class="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 resize-none"></textarea>
+    <input type="file" id="maintImg" accept="image/*" capture="environment" multiple onchange="onMaintImg(event)">
+    <label for="maintImg" class="flex flex-col items-center justify-center bg-white border-2 border-dashed border-orange-300 rounded-xl p-4 mb-2 cursor-pointer hover:bg-orange-50">
+      <i class="ph-fill ph-camera text-3xl text-orange-500"></i>
+      <p class="text-sm font-semibold text-orange-600 mt-1">📸 แนบรูปภาพ (สูงสุด 5 รูป)</p>
+      <p class="text-xs text-gray-400" id="maintImgName">ไม่บังคับ</p>
+    </label>
+    <div id="maintImgPreview" class="grid grid-cols-3 gap-1 mb-2"></div>
+    <button onclick="submitMaint()" class="w-full bg-line text-white py-2.5 rounded-xl text-sm font-bold">ส่งเรื่อง</button>
+  </div>
+  <h3 class="text-sm font-bold text-gray-700 mb-2">ประวัติ</h3>
+  <div id="maintHistory" class="space-y-2 mb-4"></div>
+  <button onclick="closeSheet('maintSheet')" class="w-full bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ปิด</button>
+</div></div>
+
+<!-- Renew Sheet -->
+<div id="renewSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-1">📜 ขอต่อสัญญา</h2>
+  <p class="text-xs text-gray-500 mb-4">ส่งคำขอต่อสัญญา ผู้ดูแลจะติดต่อกลับ</p>
+  <div id="renewExisting" class="mb-3"></div>
+  <p class="text-sm font-semibold text-gray-700 mb-2">เลือกระยะเวลา:</p>
+  <div class="grid grid-cols-3 gap-2 mb-3">
+    <button type="button" onclick="setRenewMonths(6)" data-renew="6" class="renew-opt border-2 border-gray-200 rounded-xl py-2.5 font-semibold text-sm">6 เดือน</button>
+    <button type="button" onclick="setRenewMonths(12)" data-renew="12" class="renew-opt border-2 border-line bg-line/5 rounded-xl py-2.5 font-semibold text-sm text-line">1 ปี</button>
+    <button type="button" onclick="setRenewMonths(24)" data-renew="24" class="renew-opt border-2 border-gray-200 rounded-xl py-2.5 font-semibold text-sm">2 ปี</button>
+  </div>
+  <textarea id="renewNote" placeholder="หมายเหตุ (ไม่บังคับ)" rows="2" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 resize-none"></textarea>
+  <input type="file" id="renewImg" accept="image/*" capture="environment" multiple onchange="onRenewImg(event)">
+  <label for="renewImg" class="flex items-center justify-center gap-2 bg-purple-50 border-2 border-dashed border-purple-300 rounded-xl p-3 mb-2 cursor-pointer text-purple-700">
+    <i class="ph-fill ph-camera text-xl"></i><span class="text-sm font-semibold" id="renewImgName">📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)</span>
+  </label>
+  <div id="renewImgPreview" class="grid grid-cols-3 gap-1 mb-3"></div>
+  <div class="flex gap-2">
+    <button onclick="closeSheet('renewSheet')" class="flex-1 bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ยกเลิก</button>
+    <button onclick="submitRenew()" class="flex-[2] bg-line text-white py-3 rounded-xl font-bold">ส่งคำขอ</button>
+  </div>
+</div></div>
+
+<!-- Move-Out Sheet -->
+<div id="moveOutSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-1">🚪 ขอแจ้งย้ายออก</h2>
+  <p class="text-xs text-gray-500 mb-4">แจ้งล่วงหน้าอย่างน้อย 30 วัน</p>
+  <div id="moveOutExisting" class="mb-3"></div>
+  <label class="text-sm font-semibold text-gray-700 block mb-1">วันที่ต้องการย้ายออก</label>
+  <input type="date" id="moRequestedDate" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3">
+  <label class="text-sm font-semibold text-gray-700 block mb-1">เหตุผล (ไม่บังคับ)</label>
+  <textarea id="moReason" rows="3" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-2 resize-none" placeholder="เช่น ย้ายงาน, ครอบครัวต้องการกลับต่างจังหวัด"></textarea>
+  <input type="file" id="moImg" accept="image/*" capture="environment" multiple onchange="onMoImg(event)">
+  <label for="moImg" class="flex items-center justify-center gap-2 bg-red-50 border-2 border-dashed border-red-300 rounded-xl p-3 mb-2 cursor-pointer text-red-700">
+    <i class="ph-fill ph-camera text-xl"></i><span class="text-sm font-semibold" id="moImgName">📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)</span>
+  </label>
+  <div id="moImgPreview" class="grid grid-cols-3 gap-1 mb-3"></div>
+  <div class="flex gap-2">
+    <button onclick="closeSheet('moveOutSheet')" class="flex-1 bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ยกเลิก</button>
+    <button onclick="submitMoveOut()" class="flex-[2] bg-red-500 text-white py-3 rounded-xl font-bold">ส่งคำร้อง</button>
+  </div>
+</div></div>
+
+<!-- Deposit Sheet -->
+<div id="depositSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-3">💰 เงินประกัน</h2>
+  <div id="depositTotal" class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-3 text-center">
+    <p class="text-xs text-amber-700">ยอดเงินประกันคงเหลือ</p>
+    <p class="text-2xl font-bold text-amber-700" id="depTotalAmount">฿0</p>
+  </div>
+  <h3 class="text-sm font-bold text-gray-700 mb-2">รายการ</h3>
+  <div id="depList" class="space-y-2 mb-4"></div>
+  <button onclick="closeSheet('depositSheet')" class="w-full bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ปิด</button>
+</div></div>
+
+<!-- Docs Sheet -->
+<div id="docsSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-3">📄 เอกสารของฉัน</h2>
+  <div id="docsList" class="space-y-2 mb-4"></div>
+  <button onclick="closeSheet('docsSheet')" class="w-full bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ปิด</button>
+</div></div>
+
+<!-- Contact Sheet -->
+<div id="contactSheet" class="sheet"><div class="sheet-inner">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+  <h2 class="text-lg font-bold mb-3">📞 ติดต่อหอพัก</h2>
+  <div class="space-y-2 mb-4">
+    <div class="bg-gray-50 rounded-xl p-3">
+      <p class="text-xs text-gray-500">ที่อยู่</p>
+      <p class="font-semibold text-sm" id="contactAddr">-</p>
+    </div>
+    <div class="bg-emerald-50 rounded-xl p-3">
+      <p class="text-xs text-emerald-700">PromptPay</p>
+      <p class="font-bold text-emerald-700" id="contactPpay">-</p>
+    </div>
+  </div>
+  <button onclick="closeSheet('contactSheet')" class="w-full bg-gray-100 py-3 rounded-xl font-semibold text-gray-700">ปิด</button>
+</div></div>
+
+<script>
+// ====== state ======
+let TOKEN = '';
+let DATA = null;
+let _renewMonths = 12;
+let _slipBillId = null;
+let _slipFile = null;
+let _maintFiles = [];   // multi
+let _moFiles = [];      // multi
+let _renewFiles = [];   // multi
+
+const fmt = n => n == null ? '-' : '฿' + Number(n).toLocaleString('th-TH', {maximumFractionDigits:2});
+const fmtDate = s => s ? new Date(s).toLocaleDateString('th-TH', {year:'numeric',month:'short',day:'numeric'}) : '-';
+
+(async () => {
+  const m = location.pathname.match(/\/tenant\/([a-zA-Z0-9_-]+)/);
+  if (!m) return showError('ลิงก์ไม่ถูกต้อง');
+  TOKEN = m[1];
+  try {
+    const r = await fetch(`/share/info/${TOKEN}`).then(r => r.json());
+    if (r.error) return showError(r.error);
+    DATA = r;
+    render(r);
+  } catch (e) { showError('โหลดข้อมูลล้มเหลว'); }
+})();
+
+function showError(msg) {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('errorMsg').textContent = msg;
+  document.getElementById('errorBox').classList.remove('hidden');
+}
+
+function render(r) {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+
+  document.getElementById('hdrDormitory').textContent = r.dormitory.name || 'หอพัก';
+  document.getElementById('hdrRoom').textContent = r.room.room_code;
+  document.getElementById('hdrTenant').textContent = r.tenant.display_name;
+
+  document.getElementById('tnName').textContent = r.tenant.display_name;
+  document.getElementById('tnPhone').textContent = r.tenant.phone || '-';
+  document.getElementById('tnMoveIn').textContent = fmtDate(r.tenant.move_in_date);
+
+  const cb = document.getElementById('contractBox');
+  if (r.contract) {
+    cb.innerHTML = `
+      <div class="flex justify-between"><span class="text-gray-500">เลขที่สัญญา</span><span class="font-semibold">${r.contract.contract_number}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">เริ่ม</span><span class="font-semibold">${fmtDate(r.contract.start_date)}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">สิ้นสุด</span><span class="font-semibold">${fmtDate(r.contract.end_date)}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">เงินมัดจำ</span><span class="font-semibold text-emerald-700">${fmt(r.contract.deposit_amount)}</span></div>`;
+  } else {
+    cb.innerHTML = '<p class="text-xs text-gray-400">ยังไม่มีสัญญา</p>';
+  }
+
+  document.getElementById('payNum').textContent = r.dormitory.promptpay_number || '-';
+  document.getElementById('payName').textContent = r.dormitory.promptpay_name || '-';
+  document.getElementById('payRent').textContent = fmt(r.contract?.monthly_rent || r.room.monthly_rent);
+  document.getElementById('payDue').textContent = (r.contract?.payment_due_day || r.dormitory.rent_due_day || 5) + ' ของเดือน';
+
+  document.getElementById('rateWater').textContent = fmt(r.dormitory.water_rate);
+  document.getElementById('rateElec').textContent = fmt(r.dormitory.electric_rate);
+
+  document.getElementById('contactAddr').textContent = r.dormitory.address || '-';
+  document.getElementById('contactPpay').textContent = (r.dormitory.promptpay_number || '-') + (r.dormitory.promptpay_name ? ' · ' + r.dormitory.promptpay_name : '');
+
+  renderBills(r.bills);
+  document.getElementById('dormFooter').textContent = r.dormitory.name || '';
+}
+
+function renderBills(bills) {
+  const bb = document.getElementById('billsBox');
+  if (!bills.length) { bb.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">ยังไม่มีบิล</p>'; return; }
+  bb.innerHTML = bills.map(b => billRowHtml(b)).join('');
+}
+
+function billRowHtml(b) {
+  const badge = {
+    pending:    'bg-amber-100 text-amber-700',
+    reviewing:  'bg-blue-100 text-blue-700',
+    paid:       'bg-green-100 text-green-700',
+    overdue:    'bg-red-100 text-red-700',
+    cancelled:  'bg-gray-100 text-gray-600'
+  }[b.status] || 'bg-gray-100 text-gray-600';
+  const label = { pending:'รอชำระ', reviewing:'กำลังตรวจ', paid:'ชำระแล้ว', overdue:'เกินกำหนด', cancelled:'ยกเลิก' }[b.status] || b.status;
+  return `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+    <div>
+      <p class="font-semibold text-sm">${b.billing_month}</p>
+      <p class="text-xs text-gray-500">ครบกำหนด ${fmtDate(b.due_date)}</p>
+    </div>
+    <div class="text-right">
+      <p class="font-bold text-line">${fmt(b.total_amount)}</p>
+      <span class="text-[10px] px-2 py-0.5 rounded-full ${badge}">${label}</span>
+    </div>
+  </div>`;
+}
+
+// ====== sheets ======
+function openSheet(id) { document.getElementById(id).classList.add('open'); }
+function closeSheet(id) { document.getElementById(id).classList.remove('open'); }
+
+// ====== bills ======
+async function loadBills() {
+  // Refresh from /info to get latest bills
+  try {
+    const r = await fetch(`/share/info/${TOKEN}`).then(r => r.json());
+    DATA = r;
+  } catch {}
+  const list = document.getElementById('billListFull');
+  if (!DATA.bills.length) { list.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">ยังไม่มีบิล</p>'; return; }
+  list.innerHTML = DATA.bills.map(b => `
+    <div class="border border-gray-100 rounded-xl p-3">
+      ${billRowHtml(b)}
+      ${b.status === 'pending' || b.status === 'overdue' ? `<button onclick="openPayFor(${b.id})" class="w-full mt-2 bg-line text-white py-2 rounded-lg text-sm font-bold">💸 ส่งสลิปชำระบิลนี้</button>` : ''}
+    </div>`).join('');
+}
+
+function openPayFor(billId) {
+  _slipBillId = billId;
+  closeSheet('billSheet');
+  openSheet('paySheet');
+  const sel = document.getElementById('payBillSelect');
+  const b = DATA.bills.find(x => x.id === billId);
+  sel.innerHTML = b ? `<div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3">
+    <p class="text-xs text-emerald-700">บิล ${b.billing_month}</p>
+    <p class="font-bold text-emerald-700 text-lg">${fmt(b.total_amount)}</p>
+  </div>` : '';
+}
+
+// ====== slip ======
+function onSlipSelected(e) {
+  _slipFile = e.target.files[0];
+  if (!_slipFile) return;
+  const url = URL.createObjectURL(_slipFile);
+  document.getElementById('paySlipPreview').src = url;
+  document.getElementById('paySlipPreviewBox').classList.remove('hidden');
+}
+function clearSlipPreview() {
+  _slipFile = null;
+  document.getElementById('paySlipInput').value = '';
+  document.getElementById('paySlipPreviewBox').classList.add('hidden');
+}
+
+// ====== multi-image helper ======
+function renderImgGrid(files, gridId, removeFn) {
+  const grid = document.getElementById(gridId);
+  if (!files.length) { grid.innerHTML = ''; return; }
+  grid.innerHTML = files.map((f,i) => `
+    <div class="relative aspect-square">
+      <img src="${URL.createObjectURL(f)}" class="w-full h-full object-cover rounded-lg border">
+      <button onclick="${removeFn}(${i})" class="absolute -top-1 -right-1 bg-red-500 text-white w-6 h-6 rounded-full text-xs shadow flex items-center justify-center"><i class="ph ph-x"></i></button>
+    </div>`).join('');
+}
+
+async function submitSlip() {
+  if (!_slipBillId) {
+    // Default to latest pending bill
+    const b = DATA.bills.find(x => x.status === 'pending' || x.status === 'overdue');
+    if (b) _slipBillId = b.id;
+    else return alert('ไม่มีบิลที่ต้องชำระ');
+  }
+  if (!_slipFile) return alert('กรุณาเลือกรูปสลิป');
+  const fd = new FormData();
+  fd.append('slip', _slipFile);
+  try {
+    const r = await fetch(`/share/${TOKEN}/bills/${_slipBillId}/pay`, { method:'POST', body: fd }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert('✅ ส่งสลิปสำเร็จ! รอผู้ดูแลตรวจสอบ');
+    closeSheet('paySheet');
+    _slipFile = null; _slipBillId = null;
+    document.getElementById('paySlipInput').value = '';
+    document.getElementById('paySlipPreview').classList.add('hidden');
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ====== maintenance (multi-image) ======
+function onMaintImg(e) {
+  const newFiles = Array.from(e.target.files);
+  _maintFiles = [..._maintFiles, ...newFiles].slice(0, 5);
+  document.getElementById('maintImgName').textContent = _maintFiles.length ? `${_maintFiles.length} รูป` : 'ไม่บังคับ';
+  renderImgGrid(_maintFiles, 'maintImgPreview', 'removeMaintImg');
+  e.target.value = '';
+}
+function removeMaintImg(i) {
+  _maintFiles.splice(i, 1);
+  document.getElementById('maintImgName').textContent = _maintFiles.length ? `${_maintFiles.length} รูป` : 'ไม่บังคับ';
+  renderImgGrid(_maintFiles, 'maintImgPreview', 'removeMaintImg');
+}
+
+async function loadMaint() {
+  try {
+    const list = await fetch(`/share/${TOKEN}/maintenance`).then(r => r.json());
+    const box = document.getElementById('maintHistory');
+    if (!list.length) { box.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">ยังไม่มีรายการ</p>'; return; }
+    const sBadge = { pending:'bg-amber-100 text-amber-700', in_progress:'bg-blue-100 text-blue-700', completed:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700' };
+    const sLabel = { pending:'รอดำเนินการ', in_progress:'กำลังซ่อม', completed:'เสร็จแล้ว', rejected:'ปฏิเสธ' };
+    box.innerHTML = list.map(m => {
+      const imgs = (m.images && m.images.length) ? `<div class="grid grid-cols-3 gap-1 mt-2">${m.images.map(p => `<img src="${p}" class="aspect-square w-full object-cover rounded-lg border">`).join('')}</div>` : '';
+      return `<div class="bg-gray-50 rounded-xl p-3">
+        <div class="flex justify-between items-start gap-2">
+          <p class="font-semibold text-sm flex-1">${m.title}</p>
+          <span class="text-[10px] px-2 py-0.5 rounded-full ${sBadge[m.status]||'bg-gray-100 text-gray-600'}">${sLabel[m.status]||m.status}</span>
+        </div>
+        ${m.description ? `<p class="text-xs text-gray-500 mt-1">${m.description}</p>` : ''}
+        ${imgs}
+        ${m.admin_note ? `<p class="text-xs text-gray-700 mt-2 bg-white rounded p-2 border-l-2 border-line">💬 ${m.admin_note}</p>` : ''}
+        <p class="text-[10px] text-gray-400 mt-1">${fmtDate(m.created_at)}</p>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function submitMaint() {
+  const title = document.getElementById('maintTitle').value.trim();
+  if (!title) return alert('กรุณากรอกหัวข้อ');
+  const fd = new FormData();
+  fd.append('title', title);
+  fd.append('description', document.getElementById('maintDesc').value.trim());
+  _maintFiles.forEach(f => fd.append('images', f));
+  try {
+    const r = await fetch(`/share/${TOKEN}/maintenance`, { method:'POST', body: fd }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert('✅ ส่งเรื่องสำเร็จ');
+    document.getElementById('maintTitle').value = '';
+    document.getElementById('maintDesc').value = '';
+    document.getElementById('maintImgName').textContent = 'ไม่บังคับ';
+    _maintFiles = [];
+    document.getElementById('maintImgPreview').innerHTML = '';
+    loadMaint();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ====== move-out images ======
+function onMoImg(e) {
+  const newFiles = Array.from(e.target.files);
+  _moFiles = [..._moFiles, ...newFiles].slice(0, 5);
+  document.getElementById('moImgName').textContent = _moFiles.length ? `${_moFiles.length} รูป` : '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+  renderImgGrid(_moFiles, 'moImgPreview', 'removeMoImg');
+  e.target.value = '';
+}
+function removeMoImg(i) {
+  _moFiles.splice(i, 1);
+  document.getElementById('moImgName').textContent = _moFiles.length ? `${_moFiles.length} รูป` : '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+  renderImgGrid(_moFiles, 'moImgPreview', 'removeMoImg');
+}
+
+// ====== renew images ======
+function onRenewImg(e) {
+  const newFiles = Array.from(e.target.files);
+  _renewFiles = [..._renewFiles, ...newFiles].slice(0, 5);
+  document.getElementById('renewImgName').textContent = _renewFiles.length ? `${_renewFiles.length} รูป` : '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+  renderImgGrid(_renewFiles, 'renewImgPreview', 'removeRenewImg');
+  e.target.value = '';
+}
+function removeRenewImg(i) {
+  _renewFiles.splice(i, 1);
+  document.getElementById('renewImgName').textContent = _renewFiles.length ? `${_renewFiles.length} รูป` : '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+  renderImgGrid(_renewFiles, 'renewImgPreview', 'removeRenewImg');
+}
+
+// ====== renew ======
+function setRenewMonths(n) {
+  _renewMonths = n;
+  document.querySelectorAll('.renew-opt').forEach(b => {
+    if (parseInt(b.dataset.renew) === n) {
+      b.classList.add('border-line', 'bg-line/5', 'text-line');
+      b.classList.remove('border-gray-200');
+    } else {
+      b.classList.remove('border-line', 'bg-line/5', 'text-line');
+      b.classList.add('border-gray-200');
+    }
+  });
+}
+
+async function loadRenew() {
+  try {
+    const r = await fetch(`/share/${TOKEN}/renew`).then(r => r.json());
+    const box = document.getElementById('renewExisting');
+    if (r && r.status === 'pending') {
+      box.innerHTML = `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+        <p class="text-xs text-amber-700">⏳ คำขอที่ส่งล่าสุด</p>
+        <p class="font-semibold text-sm">ขอต่อ ${r.requested_months} เดือน — รอผู้ดูแลตรวจสอบ</p>
+      </div>`;
+    } else { box.innerHTML = ''; }
+  } catch(e) {}
+}
+
+async function submitRenew() {
+  const note = document.getElementById('renewNote').value.trim();
+  const fd = new FormData();
+  fd.append('months', _renewMonths);
+  fd.append('note', note);
+  _renewFiles.forEach(f => fd.append('images', f));
+  try {
+    const r = await fetch(`/share/${TOKEN}/renew`, { method:'POST', body: fd }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert('✅ ส่งคำขอต่อสัญญาแล้ว ผู้ดูแลจะติดต่อกลับ');
+    closeSheet('renewSheet');
+    _renewFiles = [];
+    document.getElementById('renewImgPreview').innerHTML = '';
+    document.getElementById('renewImgName').textContent = '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+    document.getElementById('renewNote').value = '';
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ====== move-out ======
+async function loadMoveOut() {
+  try {
+    const r = await fetch(`/share/${TOKEN}/move-out`).then(r => r.json());
+    const box = document.getElementById('moveOutExisting');
+    if (r && (r.status === 'pending' || r.status === 'approved')) {
+      box.innerHTML = `<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+        <p class="text-xs text-amber-700">⏳ คำร้องที่ส่งล่าสุด</p>
+        <p class="font-semibold text-sm">ขอย้ายออก ${fmtDate(r.requested_date)} — สถานะ: ${r.status}</p>
+      </div>`;
+    } else { box.innerHTML = ''; }
+  } catch(e) {}
+  // Default date = 30 days from today
+  if (!document.getElementById('moRequestedDate').value) {
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    document.getElementById('moRequestedDate').value = d.toISOString().slice(0,10);
+  }
+}
+
+async function submitMoveOut() {
+  const date = document.getElementById('moRequestedDate').value;
+  const reason = document.getElementById('moReason').value.trim();
+  if (!date) return alert('กรุณาเลือกวันที่');
+  const fd = new FormData();
+  fd.append('requested_date', date);
+  fd.append('reason', reason);
+  _moFiles.forEach(f => fd.append('images', f));
+  try {
+    const r = await fetch(`/share/${TOKEN}/move-out`, { method:'POST', body: fd }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    alert('✅ ส่งคำร้องย้ายออกแล้ว');
+    closeSheet('moveOutSheet');
+    _moFiles = [];
+    document.getElementById('moImgPreview').innerHTML = '';
+    document.getElementById('moImgName').textContent = '📸 แนบเอกสาร/รูปภาพ (ไม่บังคับ)';
+    document.getElementById('moReason').value = '';
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ====== deposit ======
+async function loadDeposit() {
+  try {
+    const r = await fetch(`/share/${TOKEN}/deposit`).then(r => r.json());
+    document.getElementById('depTotalAmount').textContent = fmt(r.total);
+    const box = document.getElementById('depList');
+    if (!r.list.length) { box.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">ยังไม่มีรายการ</p>'; return; }
+    box.innerHTML = r.list.map(x => `<div class="bg-gray-50 rounded-xl p-3 flex justify-between items-center">
+      <div>
+        <p class="text-sm font-semibold">${x.description || (x.type==='deposit'?'มัดจำ':'หัก')}</p>
+        <p class="text-[10px] text-gray-400">${fmtDate(x.created_at)}</p>
+      </div>
+      <p class="font-bold ${x.type==='deposit'?'text-emerald-700':'text-red-600'}">${x.type==='deposit'?'+':'-'}${fmt(x.amount)}</p>
+    </div>`).join('');
+  } catch(e) {}
+}
+
+// ====== docs ======
+async function loadDocs() {
+  try {
+    const r = await fetch(`/share/${TOKEN}/documents`).then(r => r.json());
+    const box = document.getElementById('docsList');
+    if (!r.contracts || !r.contracts.length) { box.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">ยังไม่มีเอกสาร</p>'; return; }
+    box.innerHTML = r.contracts.map(c => `<div class="bg-gray-50 rounded-xl p-3">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-semibold text-sm">📜 ${c.contract_number}</p>
+          <p class="text-xs text-gray-500">${fmtDate(c.start_date)} → ${fmtDate(c.end_date)}</p>
+        </div>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">${c.status}</span>
+      </div>
+      <p class="text-xs text-gray-600 mt-1">ค่าเช่า ${fmt(c.monthly_rent)}/เดือน · มัดจำ ${fmt(c.deposit_amount)}</p>
+    </div>`).join('');
+  } catch(e) {}
+}
+</script>
+</body>
+</html>
