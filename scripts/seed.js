@@ -98,10 +98,8 @@ console.log(`
 Admin Login:
   Email:    ${adminEmail}
   Password: ${adminPassword}
-
-Admin Panel: http://localhost:${process.env.PORT || 3000}/admin
-
-LINE Webhook URL (กรอกใน LINE Developers Console):
-  http://localhost:${process.env.PORT || 3000}/line/webhook/${dormId}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
+
+// Exit cleanly so Render's startCommand can chain to server.js
+process.exit(0);
