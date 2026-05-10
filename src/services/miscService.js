@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { getBaseUrl } = require('../utils/url');
 
 // ============================================================
 // BLACKLIST
@@ -79,7 +80,7 @@ function createSignToken(contractId, signerType) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   db.prepare(`INSERT INTO contract_sign_tokens (contract_id, token, signer_type, expires_at)
     VALUES (?,?,?,?)`).run(contractId, token, signerType, expiresAt);
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const baseUrl = getBaseUrl();
   return { token, url: `${baseUrl}/sign/${token}`, expires_at: expiresAt };
 }
 

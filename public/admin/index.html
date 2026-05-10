@@ -1113,7 +1113,7 @@ async function checkAuth() {
     const r = await api('/auth/me');
     window._currentAdminId = r.admin.id;
     document.getElementById('dormName').textContent = r.admin.dormitory_name;
-    document.getElementById('webhookUrl').textContent = `${location.origin}/line/webhook/${r.admin.dormitory_id}`;
+    document.getElementById('webhookUrl').textContent = `${location.origin}${window.__RMS_BASE__||''}/line/webhook/${r.admin.dormitory_id}`;
     // load my role + apply menu visibility
     try {
       const me = await api('/api/admin/admins/me/role');

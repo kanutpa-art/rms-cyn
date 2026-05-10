@@ -5,6 +5,7 @@ const fs = require('fs');
 const db = require('../db/database');
 const lineService = require('../services/lineService');
 const aiService = require('../services/aiService');
+const { getBaseUrl } = require('../utils/url');
 
 // ============================================================
 // Webhook จาก LINE
@@ -265,7 +266,7 @@ function tenantWelcomeFlex(dorm, tenant) {
 }
 
 function ownerWelcomeFlex(dorm) {
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const baseUrl = getBaseUrl();
   return {
     type: 'flex', altText: 'เมนูเจ้าของหอ',
     contents: {

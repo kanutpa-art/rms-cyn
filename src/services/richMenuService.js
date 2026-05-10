@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db/database');
+const { getBaseUrl } = require('../utils/url');
 
 const LINE_API = 'https://api.line.me/v2/bot';
 const LINE_DATA_API = 'https://api-data.line.me/v2/bot';
@@ -146,7 +147,7 @@ async function setupRichMenusForDormitory(dormitoryId, opts = {}) {
   const dorm = db.prepare('SELECT * FROM dormitories WHERE id=?').get(dormitoryId);
   if (!dorm?.line_channel_access_token) throw new Error('LINE token ยังไม่ได้ตั้งค่า');
 
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  const baseUrl = getBaseUrl();
   const liffUrl = dorm.liff_id ? `https://liff.line.me/${dorm.liff_id}` : `${baseUrl}/liff/`;
   const adminUrl = `${baseUrl}/admin`;
 

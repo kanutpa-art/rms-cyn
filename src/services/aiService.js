@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const db = require('../db/database');
 const collectionService = require('./collectionService');
+const { getBaseUrl } = require('../utils/url');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -222,7 +223,7 @@ async function executeAdminCommand(parsed, dormitoryId, adminId) {
       WHERE r.dormitory_id=? AND p.status='pending'
       ORDER BY p.created_at LIMIT 10`).all(dormitoryId);
     if (!list.length) return '✅ ไม่มีสลิปรอตรวจ';
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = getBaseUrl();
     return `📄 สลิปรอตรวจ ${list.length} ใบ:\n${list.map(p => `• ห้อง ${p.room_code} • ${p.billing_month} • ฿${fmt(p.amount)}`).join('\n')}\n\nตรวจที่: ${baseUrl}/admin/#payments`;
   }
 
@@ -289,7 +290,7 @@ async function executeAdminCommand(parsed, dormitoryId, adminId) {
     const token = uuidv4().replace(/-/g, '');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     db.prepare('INSERT INTO room_invites (room_id, token, expires_at) VALUES (?,?,?)').run(room.id, token, expiresAt);
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const baseUrl = getBaseUrl();
     return `✅ สร้างลิงก์ห้อง ${room.room_code} แล้ว\n\n${baseUrl}/join/${token}\n\nหมดอายุ ${expiresAt.slice(0,10)} (ใช้ได้ครั้งเดียว)`;
   }
 

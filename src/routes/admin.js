@@ -9,6 +9,7 @@ const collectionService = require('../services/collectionService');
 const contractService = require('../services/contractService');
 const financialService = require('../services/financialService');
 const tenantService = require('../services/tenantService');
+const { buildPublicUrl } = require('../utils/url');
 
 router.use(loadAdmin);
 router.use(requireAdmin);
@@ -206,8 +207,7 @@ router.post('/rooms/:id/invite', (req, res) => {
   const token = uuidv4().replace(/-/g, '');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   db.prepare('INSERT INTO room_invites (room_id, token, expires_at) VALUES (?,?,?)').run(req.params.id, token, expiresAt);
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-  res.json({ success: true, token, url: `${baseUrl}/join/${token}`, expires_at: expiresAt });
+  res.json({ success: true, token, url: buildPublicUrl(req, `/join/${token}`), expires_at: expiresAt });
 });
 
 // ============================================================
@@ -538,8 +538,7 @@ router.post('/account/line-link-token', (req, res) => {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
   db.prepare('INSERT INTO admin_link_tokens (admin_user_id, token, expires_at) VALUES (?,?,?)')
     .run(req.session.adminId, token, expiresAt);
-  const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-  res.json({ token, url: `${baseUrl}/admin-link/${token}`, expires_at: expiresAt });
+  res.json({ token, url: buildPublicUrl(req, `/admin-link/${token}`), expires_at: expiresAt });
 });
 
 router.delete('/account/line-link', (req, res) => {

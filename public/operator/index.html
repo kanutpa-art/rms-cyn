@@ -1422,7 +1422,7 @@ async function submitOnboard() {
 // SHARE LINK MODAL (after onboarding)
 // ============================================================
 function showShareLinkModal(r) {
-  const url = `${location.origin}/tenant/${r.share_token}`;
+  const url = `${location.origin}${window.__RMS_BASE__||''}/tenant/${r.share_token}`;
   document.getElementById('shareLinkInput').value = url;
   document.getElementById('shareContractLabel').textContent = `สัญญา ${r.contract_number} • สิ้นสุด ${r.end_date}`;
   const msg = `📋 รายละเอียดห้องและสัญญาเช่าของคุณ\nกดเพื่อดูข้อมูลทั้งหมด:\n${url}`;
