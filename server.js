@@ -27,18 +27,26 @@ function serveHtml(htmlPath) {
           `(function(){` +
           `var B="${BASE}";` +
           `window.__RMS_BASE__=B;` +
-          // Intercept fetch: prepend BASE to absolute paths
+          `function fix(u){return (typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/'&&u.indexOf(B+'/')!==0&&u!==B)?B+u:u;}` +
+          // Intercept fetch
           `var _f=window.fetch;` +
-          `window.fetch=function(u,o){` +
-            `if(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/'&&u.indexOf(B)!==0)u=B+u;` +
-            `return _f.call(this,u,o);` +
-          `};` +
-          // Intercept XMLHttpRequest too (used by some libs)
+          `window.fetch=function(u,o){return _f.call(this,fix(u),o);};` +
+          // Intercept XMLHttpRequest
           `var _x=XMLHttpRequest.prototype.open;` +
-          `XMLHttpRequest.prototype.open=function(m,u){` +
-            `if(typeof u==='string'&&u.charAt(0)==='/'&&u.charAt(1)!=='/'&&u.indexOf(B)!==0)u=B+u;` +
-            `return _x.apply(this,arguments);` +
-          `};` +
+          `XMLHttpRequest.prototype.open=function(m,u){arguments[1]=fix(u);return _x.apply(this,arguments);};` +
+          // Rewrite <a href> and <img src> on click/load (and dynamic content)
+          `function walk(root){` +
+            `(root||document).querySelectorAll('a[href^="/"],img[src^="/"],form[action^="/"]').forEach(function(el){` +
+              `['href','src','action'].forEach(function(at){` +
+                `var v=el.getAttribute(at);` +
+                `if(v&&v.charAt(0)==='/'&&v.charAt(1)!=='/'&&v.indexOf(B+'/')!==0&&v!==B)el.setAttribute(at,B+v);` +
+              `});` +
+            `});` +
+          `}` +
+          `if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){walk();});` +
+          `else walk();` +
+          // Watch for dynamically-added DOM (admin uses innerHTML a lot)
+          `try{new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes&&m.addedNodes.forEach(function(n){if(n.nodeType===1)walk(n);});});}).observe(document.documentElement||document,{childList:true,subtree:true});}catch(e){}` +
           `})();` +
           `</script>`;
         // Inject right before </head>
