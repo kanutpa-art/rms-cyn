@@ -1,9 +1,8 @@
 services:
   - type: web
     name: rms-cyn
-    runtime: node
+    env: node
     plan: free
-    region: singapore
     buildCommand: npm install
     startCommand: node scripts/seed.js && node server.js
     envVars:
