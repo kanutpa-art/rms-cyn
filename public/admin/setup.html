@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ตั้งค่าระบบ RMS — เริ่มต้นใช้งาน</title>
+<style>
+  /* ============================================================
+     SENIOR-FRIENDLY DESIGN
+     - Font ใหญ่: 20px base, 28-32px headings
+     - ปุ่มใหญ่: min-height 64px
+     - สี contrast สูง: ดำบนขาว, ปุ่มเขียว/น้ำเงิน
+     - Spacing เยอะ: padding/margin generous
+     ============================================================ */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Sarabun', 'Prompt', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 20px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #f5f7fa;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    color: #0f4c81;
+    margin-bottom: 8px;
+  }
+  .header .sub {
+    font-size: 20px;
+    color: #555;
+  }
+
+  /* Progress bar */
+  .progress {
+    background: white;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .progress-label {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #0f4c81;
+  }
+  .progress-bar {
+    height: 16px;
+    background: #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #059669);
+    transition: width 0.4s ease;
+    border-radius: 8px;
+  }
+  .steps {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .step-dot {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+    color: #999;
+    padding: 4px 2px;
+    min-width: 80px;
+  }
+  .step-dot.active { color: #0f4c81; font-weight: 700; }
+  .step-dot.done { color: #059669; }
+  .step-dot .num {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    color: #666;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .step-dot.active .num { background: #0f4c81; color: white; }
+  .step-dot.done .num { background: #059669; color: white; }
+  .step-dot .label { display: block; font-size: 13px; }
+
+  /* Card */
+  .card {
+    background: white;
+    border-radius: 16px;
+    padding: 40px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .card h2 {
+    font-size: 32px;
+    color: #0f4c81;
+    margin-bottom: 12px;
+    font-weight: 700;
+  }
+  .card .desc {
+    font-size: 20px;
+    color: #555;
+    margin-bottom: 32px;
+    line-height: 1.7;
+  }
+
+  /* Form */
+  .form-group {
+    margin-bottom: 28px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 10px;
+  }
+  .form-group .hint {
+    font-size: 17px;
+    color: #777;
+    margin-bottom: 10px;
+    font-weight: normal;
+  }
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 22px;
+    font-family: inherit;
+    border: 2px solid #d1d5db;
+    border-radius: 12px;
+    background: #fafafa;
+    transition: border 0.2s;
+  }
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #0f4c81;
+    background: white;
+  }
+  .form-group input[type="number"] { font-variant-numeric: tabular-nums; }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 600px) {
+    .form-row { grid-template-columns: 1fr; }
+    .card { padding: 24px 20px; }
+    .header h1 { font-size: 28px; }
+    .card h2 { font-size: 26px; }
+  }
+
+  /* Buttons */
+  .buttons {
+    display: flex;
+    gap: 16px;
+    margin-top: 32px;
+  }
+  .btn {
+    flex: 1;
+    min-height: 72px;
+    padding: 16px 24px;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #0f4c81, #1e40af);
+    color: white;
+    box-shadow: 0 4px 12px rgba(15, 76, 129, 0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 76, 129, 0.4);
+  }
+  .btn-secondary {
+    background: white;
+    color: #555;
+    border: 2px solid #d1d5db;
+  }
+  .btn-secondary:hover { background: #f5f7fa; }
+  .btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+  .btn-skip {
+    background: transparent;
+    color: #777;
+    border: none;
+    text-decoration: underline;
+    flex: 0;
+    min-height: 50px;
+    font-size: 18px;
+    padding: 12px 20px;
+  }
+
+  /* Info box */
+  .info-box {
+    background: #eff6ff;
+    border-left: 6px solid #0f4c81;
+    padding: 20px 24px;
+    border-radius: 8px;
+    margin: 24px 0;
+    font-size: 18px;
+    color: #1a3a5c;
+    line-height: 1.7;
+  }
+  .info-box.warning {
+    background: #fef3c7;
+    border-left-color: #d97706;
+    color: #78350f;
+  }
+  .info-box.success {
+    background: #d1fae5;
+    border-left-color: #059669;
+    color: #064e3b;
+  }
+  .info-box strong { font-weight: 700; }
+  .info-box .icon { font-size: 24px; margin-right: 8px; }
+
+  /* Room preview */
+  .room-preview {
+    background: #f9fafb;
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 16px;
+  }
+  .room-preview .label {
+    font-size: 18px;
+    color: #555;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .room-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    background: #0f4c81;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  /* Summary list */
+  .summary {
+    list-style: none;
+  }
+  .summary li {
+    padding: 16px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 20px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .summary li:last-child { border-bottom: none; }
+  .summary .key { color: #555; }
+  .summary .value { font-weight: 700; color: #1a1a1a; }
+
+  /* Hidden steps */
+  .step-content { display: none; }
+  .step-content.active { display: block; animation: fadeIn 0.3s; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 40px;
+    font-size: 22px;
+    color: #555;
+  }
+
+  /* Big icon */
+  .big-icon {
+    text-align: center;
+    font-size: 96px;
+    margin-bottom: 24px;
+  }
+
+  /* Skip link */
+  .skip-row {
+    text-align: center;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏠 ตั้งค่าระบบ</h1>
+    <p class="sub">ระบบจัดการหอพัก RMS — เริ่มต้นใช้งาน</p>
+  </div>
+
+  <div class="progress">
+    <div class="progress-label" id="progressLabel">ขั้นตอนที่ 1 จาก 7</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 14%"></div></div>
+    <div class="steps" id="stepDots"></div>
+  </div>
+
+  <!-- ============================================================
+       STEP 1: WELCOME
+       ============================================================ -->
+  <div class="step-content active" data-step="1">
+    <div class="card">
+      <div class="big-icon">👋</div>
+      <h2 style="text-align:center;">ยินดีต้อนรับสู่ RMS</h2>
+      <p class="desc" style="text-align:center;">
+        ระบบจัดการหอพักที่ใช้งานง่าย<br>
+        เรามาตั้งค่าเริ่มต้นกันก่อนนะคะ<br>
+        ใช้เวลาประมาณ <strong>5 นาที</strong> เท่านั้น
+      </p>
+
+      <div class="info-box">
+        <span class="icon">📋</span>
+        <strong>เราจะตั้งค่า 6 อย่าง:</strong><br>
+        1. ข้อมูลหอพัก (ชื่อ ที่อยู่)<br>
+        2. ค่าน้ำ-ค่าไฟ<br>
+        3. บัญชีรับชำระเงิน (PromptPay)<br>
+        4. ห้องพักของคุณ<br>
+        5. เชื่อมต่อ LINE (ถ้ามี — ข้ามได้)<br>
+        6. ตรวจสอบและเสร็จสิ้น
+      </div>
+
+      <div class="info-box warning">
+        <span class="icon">💡</span>
+        <strong>เคล็ดลับ:</strong> สามารถ "ย้อนกลับ" ไปแก้ไขได้ทุกเมื่อ
+        และข้อมูลที่กรอกไว้จะถูกบันทึกอัตโนมัติทุกขั้นตอน
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-primary" onclick="nextStep()">
+          เริ่มตั้งค่า ➜
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 2: DORMITORY INFO
+       ============================================================ -->
+  <div class="step-content" data-step="2">
+    <div class="card">
+      <h2>📍 ข้อมูลหอพัก</h2>
+      <p class="desc">กรอกชื่อและที่อยู่หอพักของคุณ</p>
+
+      <div class="form-group">
+        <label>ชื่อหอพัก <span style="color:#dc2626">*</span></label>
+        <p class="hint">เช่น "หอพักสุขใจ" หรือ "บ้านพักครูสุข"</p>
+        <input type="text" id="dormName" placeholder="ชื่อหอพักของคุณ">
+      </div>
+
+      <div class="form-group">
+        <label>ที่อยู่ <span style="color:#dc2626">*</span></label>
+        <p class="hint">เลขที่ ถนน ตำบล อำเภอ จังหวัด รหัสไปรษณีย์</p>
+        <textarea id="dormAddress" rows="3" placeholder="123/45 ถ.พหลโยธิน แขวง... เขต... กรุงเทพฯ 10400"></textarea>
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-primary" onclick="saveStep2()">บันทึก ➜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 3: UTILITY RATES
+       ============================================================ -->
+  <div class="step-content" data-step="3">
+    <div class="card">
+      <h2>💧⚡ ค่าน้ำและค่าไฟ</h2>
+      <p class="desc">กรอกอัตราค่าน้ำและค่าไฟต่อหน่วย (เปลี่ยนภายหลังได้)</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>💧 ค่าน้ำ (บาท/หน่วย)</label>
+          <p class="hint">มาตรฐาน 18 บาท/หน่วย</p>
+          <input type="number" id="waterRate" value="18" min="0" step="0.5">
+        </div>
+
+        <div class="form-group">
+          <label>⚡ ค่าไฟ (บาท/หน่วย)</label>
+          <p class="hint">มาตรฐาน 8 บาท/หน่วย</p>
+          <input type="number" id="electricRate" value="8" min="0" step="0.5">
+        </div>
+      </div>
+
+      <div class="info-box">
+        <span class="icon">📊</span>
+        <strong>ตัวอย่าง:</strong> ถ้าผู้เช่าใช้น้ำ 5 หน่วย × <span id="exWater">18</span> บาท = <span id="exWaterTotal">90</span> บาท
+        และใช้ไฟ 100 หน่วย × <span id="exElec">8</span> บาท = <span id="exElecTotal">800</span> บาท
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-primary" onclick="saveStep3()">บันทึก ➜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 4: PROMPTPAY
+       ============================================================ -->
+  <div class="step-content" data-step="4">
+    <div class="card">
+      <h2>💳 บัญชีรับชำระเงิน</h2>
+      <p class="desc">กรอกข้อมูล PromptPay เพื่อให้ผู้เช่าโอนเงินได้ง่าย</p>
+
+      <div class="form-group">
+        <label>เบอร์ PromptPay หรือ เลขบัตรประชาชน</label>
+        <p class="hint">เช่น 0812345678 หรือ 1234567890123</p>
+        <input type="text" id="promptpayNumber" placeholder="0812345678">
+      </div>
+
+      <div class="form-group">
+        <label>ชื่อบัญชี</label>
+        <p class="hint">ชื่อตามที่ลงทะเบียน PromptPay (เพื่อให้ผู้เช่าเห็นแน่ใจ)</p>
+        <input type="text" id="promptpayName" placeholder="นายสมชาย ใจดี">
+      </div>
+
+      <div class="info-box">
+        <span class="icon">🔒</span>
+        <strong>ปลอดภัย:</strong> ระบบจะใช้ข้อมูลนี้สร้าง QR Code อัตโนมัติบนทุกบิล
+        ผู้เช่าสแกนแล้วชำระได้ทันที ไม่ต้องเปิดเผยเลขบัญชีธนาคารโดยตรง
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-primary" onclick="saveStep4()">บันทึก ➜</button>
+      </div>
+      <div class="skip-row">
+        <button class="btn btn-skip" onclick="nextStep()">ข้ามขั้นตอนนี้ (กรอกภายหลังได้)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 5: ROOMS (BULK CREATE)
+       ============================================================ -->
+  <div class="step-content" data-step="5">
+    <div class="card">
+      <h2>🏘️ เพิ่มห้องพัก</h2>
+      <p class="desc">สร้างห้องทั้งหมดในครั้งเดียว — ระบุอาคาร ชั้น และจำนวนห้อง</p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>ชื่ออาคาร</label>
+          <p class="hint">เช่น A, B, อาคาร 1</p>
+          <input type="text" id="bldgName" value="A" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>ชั้น</label>
+          <p class="hint">เลขชั้น (1, 2, 3, ...)</p>
+          <input type="number" id="bldgFloor" value="1" min="1" max="50">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>เลขห้องเริ่มต้น</label>
+          <p class="hint">เช่น 101 (ถ้าชั้น 1)</p>
+          <input type="number" id="roomStart" value="101">
+        </div>
+        <div class="form-group">
+          <label>จำนวนห้อง</label>
+          <p class="hint">ห้องที่จะสร้าง</p>
+          <input type="number" id="roomCount" value="10" min="1" max="100">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>ค่าเช่าต่อเดือน (บาท)</label>
+        <p class="hint">ค่าเช่าเฉลี่ย (ปรับแต่ละห้องได้ภายหลัง)</p>
+        <input type="number" id="roomRent" value="3500" min="0" step="100">
+      </div>
+
+      <div class="room-preview">
+        <div class="label">ตัวอย่างห้องที่จะสร้าง:</div>
+        <div class="room-chips" id="roomPreviewChips"></div>
+      </div>
+
+      <div class="info-box">
+        <span class="icon">💡</span>
+        <strong>เคล็ดลับ:</strong> สามารถ "ข้าม" และเพิ่มห้องในเมนูภายหลังได้
+        หรือทำขั้นตอนนี้ซ้ำเพื่อเพิ่มอาคารอื่น
+      </div>
+
+      <div id="roomsCreatedList" style="margin-top:20px; display:none;">
+        <div class="info-box success">
+          <span class="icon">✅</span>
+          <strong>สร้างห้องสำเร็จ:</strong> <span id="roomsCreatedSummary"></span>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-success" onclick="createRooms()">➕ สร้างห้อง</button>
+        <button class="btn btn-primary" onclick="nextStep()">ถัดไป ➜</button>
+      </div>
+      <div class="skip-row">
+        <button class="btn btn-skip" onclick="nextStep()">ข้ามขั้นตอนนี้</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 6: LINE (OPTIONAL)
+       ============================================================ -->
+  <div class="step-content" data-step="6">
+    <div class="card">
+      <h2>📱 เชื่อมต่อ LINE</h2>
+      <p class="desc">เชื่อมต่อ LINE OA เพื่อให้ผู้เช่าได้รับแจ้งเตือนอัตโนมัติ</p>
+
+      <div class="info-box warning">
+        <span class="icon">⚠️</span>
+        <strong>หากยังไม่มี LINE Official Account:</strong>
+        สามารถ <strong>ข้ามขั้นตอนนี้</strong> และตั้งค่าภายหลังได้
+        ระบบยังใช้งานได้ปกติ (ส่ง Link ผ่านช่องทางอื่นได้)
+      </div>
+
+      <div class="form-group">
+        <label>Channel ID</label>
+        <p class="hint">จาก LINE Developers Console → Provider → Channel</p>
+        <input type="text" id="lineChannelId" placeholder="1234567890">
+      </div>
+
+      <div class="form-group">
+        <label>Channel Secret</label>
+        <p class="hint">Secret key สำหรับตรวจสอบ webhook</p>
+        <input type="text" id="lineChannelSecret" placeholder="xxxxxxxxxxxxxxxxxxxx">
+      </div>
+
+      <div class="form-group">
+        <label>Channel Access Token</label>
+        <p class="hint">Token แบบ long-lived (เริ่มต้นด้วย eyJ...)</p>
+        <textarea id="lineAccessToken" rows="3" placeholder="eyJhbGciOiJIUzI1NiI..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>LIFF ID (ถ้ามี)</label>
+        <p class="hint">สำหรับฟอร์มลงทะเบียนผู้เช่าผ่าน LINE</p>
+        <input type="text" id="liffId" placeholder="1234567890-xxxxxxxx">
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-primary" onclick="saveStep6()">บันทึก ➜</button>
+      </div>
+      <div class="skip-row">
+        <button class="btn btn-skip" onclick="nextStep()">ข้ามขั้นตอนนี้ (ตั้งค่าภายหลัง)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       STEP 7: SUMMARY & FINISH
+       ============================================================ -->
+  <div class="step-content" data-step="7">
+    <div class="card">
+      <div class="big-icon">🎉</div>
+      <h2 style="text-align:center;">เสร็จเรียบร้อย!</h2>
+      <p class="desc" style="text-align:center;">
+        ตรวจสอบข้อมูลของคุณก่อนเริ่มใช้งานจริง
+      </p>
+
+      <ul class="summary" id="summaryList">
+        <li><span class="key">📍 ชื่อหอพัก:</span> <span class="value" id="sumName">-</span></li>
+        <li><span class="key">🏠 ที่อยู่:</span> <span class="value" id="sumAddress">-</span></li>
+        <li><span class="key">💧 ค่าน้ำ:</span> <span class="value" id="sumWater">-</span></li>
+        <li><span class="key">⚡ ค่าไฟ:</span> <span class="value" id="sumElec">-</span></li>
+        <li><span class="key">💳 PromptPay:</span> <span class="value" id="sumPP">-</span></li>
+        <li><span class="key">🏘️ ห้องพักทั้งหมด:</span> <span class="value" id="sumRooms">-</span> ห้อง</li>
+        <li><span class="key">📱 LINE:</span> <span class="value" id="sumLine">-</span></li>
+      </ul>
+
+      <div class="info-box success">
+        <span class="icon">✅</span>
+        <strong>พร้อมเริ่มใช้งานแล้ว!</strong><br>
+        กดปุ่ม "เข้าสู่ระบบ" เพื่อเริ่มจัดการหอพักของคุณ
+        ทุกการตั้งค่าสามารถแก้ไขได้ในเมนู "ตั้งค่า"
+      </div>
+
+      <div class="buttons">
+        <button class="btn btn-secondary" onclick="prevStep()">← ย้อนกลับ</button>
+        <button class="btn btn-success" onclick="finishSetup()" style="flex:2;">
+          🚀 เข้าสู่ระบบ
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  const BASE = window.__RMS_BASE__ || '';
+  const STEPS = [
+    { num: 1, label: 'ยินดีต้อนรับ' },
+    { num: 2, label: 'ข้อมูล' },
+    { num: 3, label: 'ค่าน้ำ-ไฟ' },
+    { num: 4, label: 'รับเงิน' },
+    { num: 5, label: 'ห้องพัก' },
+    { num: 6, label: 'LINE' },
+    { num: 7, label: 'เสร็จสิ้น' }
+  ];
+
+  let currentStep = 1;
+  let totalRoomsCreated = 0;
+
+  // ============================================================
+  // API
+  // ============================================================
+  async function api(path, opts = {}) {
+    const res = await fetch(BASE + '/api/admin' + path, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...opts
+    });
+    if (res.status === 401) { window.location.href = BASE + '/admin'; return; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
+    return data;
+  }
+
+  // ============================================================
+  // INITIAL LOAD
+  // ============================================================
+  async function init() {
+    renderSteps();
+    try {
+      const status = await api('/setup/status');
+      if (status.dormitory) {
+        document.getElementById('dormName').value = status.dormitory.name || '';
+        document.getElementById('dormAddress').value = status.dormitory.address || '';
+        document.getElementById('waterRate').value = status.dormitory.water_rate || 18;
+        document.getElementById('electricRate').value = status.dormitory.electric_rate || 8;
+        document.getElementById('promptpayNumber').value = status.dormitory.promptpay_number || '';
+        totalRoomsCreated = status.room_count || 0;
+      }
+    } catch (e) {
+      console.warn('Setup status load failed:', e.message);
+    }
+    updatePreview();
+    updateExample();
+  }
+
+  // ============================================================
+  // PROGRESS UI
+  // ============================================================
+  function renderSteps() {
+    const container = document.getElementById('stepDots');
+    container.innerHTML = STEPS.map(s => `
+      <div class="step-dot" data-step="${s.num}">
+        <span class="num">${s.num}</span>
+        <span class="label">${s.label}</span>
+      </div>
+    `).join('');
+    updateStepDots();
+  }
+
+  function updateStepDots() {
+    document.querySelectorAll('.step-dot').forEach(el => {
+      const n = parseInt(el.dataset.step);
+      el.classList.remove('active', 'done');
+      if (n < currentStep) el.classList.add('done');
+      else if (n === currentStep) el.classList.add('active');
+    });
+    document.getElementById('progressLabel').textContent = `ขั้นตอนที่ ${currentStep} จาก ${STEPS.length}`;
+    document.getElementById('progressFill').style.width = `${(currentStep / STEPS.length) * 100}%`;
+  }
+
+  function showStep(n) {
+    document.querySelectorAll('.step-content').forEach(el => {
+      el.classList.toggle('active', parseInt(el.dataset.step) === n);
+    });
+    currentStep = n;
+    updateStepDots();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (n === 7) renderSummary();
+  }
+
+  function nextStep() { if (currentStep < STEPS.length) showStep(currentStep + 1); }
+  function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+  // ============================================================
+  // STEP HANDLERS
+  // ============================================================
+  async function saveDormitory(fields) {
+    try {
+      // Get current and merge
+      const status = await api('/setup/status');
+      const current = status.dormitory || {};
+      await api('/dormitory', {
+        method: 'PUT',
+        body: JSON.stringify({ ...current, ...fields })
+      });
+      return true;
+    } catch (e) {
+      alert('บันทึกไม่สำเร็จ: ' + e.message);
+      return false;
+    }
+  }
+
+  async function saveStep2() {
+    const name = document.getElementById('dormName').value.trim();
+    const address = document.getElementById('dormAddress').value.trim();
+    if (!name) { alert('กรุณากรอกชื่อหอพัก'); return; }
+    if (!address) { alert('กรุณากรอกที่อยู่'); return; }
+    if (await saveDormitory({ name, address })) nextStep();
+  }
+
+  async function saveStep3() {
+    const water = parseFloat(document.getElementById('waterRate').value);
+    const electric = parseFloat(document.getElementById('electricRate').value);
+    if (isNaN(water) || water < 0) { alert('กรุณากรอกค่าน้ำให้ถูกต้อง'); return; }
+    if (isNaN(electric) || electric < 0) { alert('กรุณากรอกค่าไฟให้ถูกต้อง'); return; }
+    if (await saveDormitory({ water_rate: water, electric_rate: electric })) nextStep();
+  }
+
+  async function saveStep4() {
+    const num = document.getElementById('promptpayNumber').value.trim();
+    const nm = document.getElementById('promptpayName').value.trim();
+    if (await saveDormitory({ promptpay_number: num, promptpay_name: nm })) nextStep();
+  }
+
+  async function saveStep6() {
+    const fields = {
+      line_channel_id: document.getElementById('lineChannelId').value.trim(),
+      line_channel_secret: document.getElementById('lineChannelSecret').value.trim(),
+      line_channel_access_token: document.getElementById('lineAccessToken').value.trim(),
+      liff_id: document.getElementById('liffId').value.trim()
+    };
+    if (await saveDormitory(fields)) nextStep();
+  }
+
+  // ============================================================
+  // ROOM BULK CREATION
+  // ============================================================
+  function updatePreview() {
+    const bldg = document.getElementById('bldgName')?.value || 'A';
+    const floor = parseInt(document.getElementById('bldgFloor')?.value || 1);
+    const start = parseInt(document.getElementById('roomStart')?.value || 101);
+    const count = Math.min(parseInt(document.getElementById('roomCount')?.value || 10), 20);
+    const preview = document.getElementById('roomPreviewChips');
+    if (!preview) return;
+    const chips = [];
+    for (let i = 0; i < Math.min(count, 8); i++) {
+      chips.push(`<span class="chip">${bldg}${start + i}</span>`);
+    }
+    if (count > 8) chips.push(`<span class="chip" style="background:#888;">+${count - 8} อื่นๆ</span>`);
+    preview.innerHTML = chips.join('');
+  }
+
+  async function createRooms() {
+    const bldg = document.getElementById('bldgName').value.trim() || 'A';
+    const floor = parseInt(document.getElementById('bldgFloor').value || 1);
+    const start = parseInt(document.getElementById('roomStart').value || 101);
+    const count = parseInt(document.getElementById('roomCount').value || 10);
+    const rent = parseFloat(document.getElementById('roomRent').value || 0);
+    if (!rent) { alert('กรุณากรอกค่าเช่า'); return; }
+    if (count < 1 || count > 100) { alert('จำนวนห้องต้อง 1-100'); return; }
+
+    const rooms = [];
+    for (let i = 0; i < count; i++) {
+      rooms.push({
+        building: bldg,
+        floor: floor,
+        room_number: String(start + i),
+        monthly_rent: rent
+      });
+    }
+
+    try {
+      const result = await api('/setup/rooms/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ rooms })
+      });
+      totalRoomsCreated += result.created;
+      document.getElementById('roomsCreatedList').style.display = 'block';
+      document.getElementById('roomsCreatedSummary').textContent =
+        `สร้างแล้ว ${result.created} ห้อง${result.skipped ? ` (ข้าม ${result.skipped} ห้อง ซ้ำ)` : ''} — รวมทั้งหมด ${totalRoomsCreated} ห้อง`;
+      // Reset starting number for next batch
+      document.getElementById('roomStart').value = start + count;
+    } catch (e) {
+      alert('สร้างห้องไม่สำเร็จ: ' + e.message);
+    }
+  }
+
+  // ============================================================
+  // UTILITY EXAMPLE UPDATE
+  // ============================================================
+  function updateExample() {
+    const w = parseFloat(document.getElementById('waterRate')?.value || 18);
+    const e = parseFloat(document.getElementById('electricRate')?.value || 8);
+    const wEl = document.getElementById('exWater');
+    const wtEl = document.getElementById('exWaterTotal');
+    const eEl = document.getElementById('exElec');
+    const etEl = document.getElementById('exElecTotal');
+    if (wEl) wEl.textContent = w;
+    if (wtEl) wtEl.textContent = (w * 5).toFixed(0);
+    if (eEl) eEl.textContent = e;
+    if (etEl) etEl.textContent = (e * 100).toFixed(0);
+  }
+
+  // ============================================================
+  // SUMMARY
+  // ============================================================
+  async function renderSummary() {
+    try {
+      const status = await api('/setup/status');
+      const d = status.dormitory || {};
+      document.getElementById('sumName').textContent = d.name || '(ยังไม่ได้กรอก)';
+      document.getElementById('sumAddress').textContent = d.address || '(ยังไม่ได้กรอก)';
+      document.getElementById('sumWater').textContent = `${d.water_rate || 0} บาท/หน่วย`;
+      document.getElementById('sumElec').textContent = `${d.electric_rate || 0} บาท/หน่วย`;
+      document.getElementById('sumPP').textContent = d.promptpay_number || '(ยังไม่ได้ตั้งค่า)';
+      document.getElementById('sumRooms').textContent = status.room_count || 0;
+      const lineConfig = await fetch(BASE + '/api/admin/dormitory', { credentials: 'include' }).then(r => r.json()).catch(() => ({}));
+      document.getElementById('sumLine').textContent = lineConfig.line_channel_access_token ? '✅ เชื่อมต่อแล้ว' : '⚪ ยังไม่เชื่อมต่อ';
+    } catch (e) {
+      console.warn('Summary load failed:', e);
+    }
+  }
+
+  async function finishSetup() {
+    try {
+      await api('/setup/complete', { method: 'POST' });
+      window.location.href = BASE + '/admin';
+    } catch (e) {
+      alert('ไม่สามารถบันทึกการตั้งค่า: ' + e.message);
+    }
+  }
+
+  // ============================================================
+  // LIVE PREVIEW LISTENERS
+  // ============================================================
+  document.addEventListener('input', (e) => {
+    if (['bldgName','bldgFloor','roomStart','roomCount'].includes(e.target.id)) updatePreview();
+    if (['waterRate','electricRate'].includes(e.target.id)) updateExample();
+  });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  init();
+</script>
+</body>
+</html>

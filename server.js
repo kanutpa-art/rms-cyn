@@ -303,6 +303,7 @@ app.use('/share', require('./src/routes/tenantShare'));
 // When BASE is set, also register routes under the BASE prefix
 // ============================================================
 const _adminHtml    = serveHtml(path.join(__dirname, 'public/admin/index.html'));
+const _setupHtml    = serveHtml(path.join(__dirname, 'public/admin/setup.html'));
 const _operatorHtml = serveHtml(path.join(__dirname, 'public/operator/index.html'));
 const _liffHtml     = serveHtml(path.join(__dirname, 'public/liff/index.html'));
 const _joinHtml     = serveHtml(path.join(__dirname, 'public/liff/join.html'));
@@ -316,6 +317,7 @@ function r(path_, handler) {
   if (BASE) app.get(BASE + path_, handler);
 }
 
+r('/admin/setup',    _setupHtml);
 r('/admin',          _adminHtml);
 r('/admin/*',        _adminHtml);
 r('/operator',       _operatorHtml);

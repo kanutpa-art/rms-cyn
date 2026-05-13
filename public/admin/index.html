@@ -1104,6 +1104,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const ok = await checkAuth();
   if (!ok) return;
+
+  // First-time setup check: redirect to wizard if not completed
+  try {
+    const status = await api('/api/admin/setup/status');
+    if (!status.completed && !location.pathname.endsWith('/setup')) {
+      window.location.href = (window.__RMS_BASE__ || '') + '/admin/setup';
+      return;
+    }
+  } catch (_) { /* ignore — proceed normally */ }
+
   showApp();
   navigate('dashboard');
 });

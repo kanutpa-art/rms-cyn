@@ -562,4 +562,73 @@ router.delete('/account/line-link', (req, res) => {
   res.json({ success: true });
 });
 
+// ============================================================
+// SETUP WIZARD
+// ============================================================
+router.get('/setup/status', (req, res) => {
+  const dorm = db.prepare('SELECT setup_completed, name, address, water_rate, electric_rate, promptpay_number FROM dormitories WHERE id=?').get(req.dormitoryId);
+  const roomCount = db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(req.dormitoryId).c;
+  res.json({
+    completed: !!dorm?.setup_completed,
+    has_info: !!(dorm?.name && dorm?.address),
+    has_rates: !!(dorm?.water_rate && dorm?.electric_rate),
+    has_promptpay: !!dorm?.promptpay_number,
+    room_count: roomCount,
+    dormitory: dorm
+  });
+});
+
+router.post('/setup/complete', (req, res) => {
+  db.prepare('UPDATE dormitories SET setup_completed=1 WHERE id=?').run(req.dormitoryId);
+  res.json({ success: true });
+});
+
+router.post('/setup/reset', (req, res) => {
+  db.prepare('UPDATE dormitories SET setup_completed=0 WHERE id=?').run(req.dormitoryId);
+  res.json({ success: true });
+});
+
+// Bulk room creation: รับ array ของห้อง — สร้างทีเดียวพร้อมกัน
+router.post('/setup/rooms/bulk', (req, res) => {
+  const { rooms } = req.body;
+  if (!Array.isArray(rooms) || !rooms.length) {
+    return res.status(400).json({ error: 'กรุณาระบุรายการห้อง' });
+  }
+
+  const dorm = db.prepare('SELECT room_quota FROM dormitories WHERE id=?').get(req.dormitoryId);
+  const quota = dorm?.room_quota || 30;
+  const used = db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(req.dormitoryId).c;
+  if (used + rooms.length > quota) {
+    return res.status(403).json({ error: `เกินโควต้า ${quota} ห้อง (มีอยู่ ${used} ห้อง พยายามเพิ่ม ${rooms.length})` });
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO rooms (dormitory_id, building, floor, room_number, room_code, monthly_rent, notes,
+      initial_water_meter, initial_electric_meter)
+    VALUES (?,?,?,?,?,?,?,?,?)
+  `);
+
+  const created = [];
+  const skipped = [];
+  const tx = db.transaction((items) => {
+    for (const r of items) {
+      const building = (r.building || 'A').toUpperCase();
+      const floor = parseInt(r.floor || 1);
+      const roomNum = String(r.room_number || '').trim();
+      const rent = parseFloat(r.monthly_rent || 0);
+      if (!roomNum || !rent) { skipped.push({ ...r, reason: 'ข้อมูลไม่ครบ' }); continue; }
+      const code = buildRoomCode(building, floor, roomNum);
+      try {
+        const result = stmt.run(req.dormitoryId, building, floor, roomNum, code, rent,
+          r.notes || '', r.initial_water_meter || 0, r.initial_electric_meter || 0);
+        created.push({ id: result.lastInsertRowid, room_code: code });
+      } catch (e) {
+        skipped.push({ room_code: code, reason: 'รหัสห้องซ้ำ' });
+      }
+    }
+  });
+  tx(rooms);
+  res.json({ success: true, created: created.length, skipped: skipped.length, details: { created, skipped } });
+});
+
 module.exports = router;
