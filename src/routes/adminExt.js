@@ -4,6 +4,7 @@ const db = require('../db/database');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { imageFileFilter, makeImageStorage, validateImageMagic } = require('../utils/fileFilter');
 
 const financialService = require('../services/financialService');
 const operationsService = require('../services/operationsService');
@@ -78,9 +79,7 @@ router.post('/finance/bank-statements/:id/match/:paymentId', (req, res) => {
 // ============================================================
 // INSPECTIONS
 // ============================================================
-const inspectionDir = path.join(__dirname, '../../uploads/inspections');
-if (!fs.existsSync(inspectionDir)) fs.mkdirSync(inspectionDir, { recursive: true });
-const inspectionUpload = multer({ dest: inspectionDir });
+const inspectionUpload = multer({ storage: makeImageStorage('inspections'), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 router.get('/inspections', (req, res) => {
   res.json(operationsService.listInspections(req.dormitoryId, req.query));
@@ -105,7 +104,7 @@ router.delete('/inspections/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/inspections/:id/photos', inspectionUpload.single('photo'), (req, res) => {
+router.post('/inspections/:id/photos', inspectionUpload.single('photo'), validateImageMagic, (req, res) => {
   const i = operationsService.getInspection(req.params.id, req.dormitoryId);
   if (!i) return res.status(404).json({ error: 'Not found' });
   if (!req.file) return res.status(400).json({ error: 'No file' });
@@ -236,9 +235,7 @@ router.get('/contracts/:id/signatures', (req, res) => {
 const richMenuService = require('../services/richMenuService');
 const broadcastService = require('../services/broadcastService');
 
-const richMenuDir = path.join(__dirname, '../../public/richmenu');
-if (!fs.existsSync(richMenuDir)) fs.mkdirSync(richMenuDir, { recursive: true });
-const richMenuUpload = multer({ dest: richMenuDir, limits: { fileSize: 1024*1024 } });
+const richMenuUpload = multer({ storage: makeImageStorage('richmenu'), limits: { fileSize: 1024 * 1024 }, fileFilter: imageFileFilter });
 
 router.get('/richmenu/list', async (req, res) => {
   try { res.json(await richMenuService.listRichMenus(req.dormitoryId)); }
@@ -256,7 +253,7 @@ router.get('/richmenu/status', (req, res) => {
   });
 });
 
-router.post('/richmenu/upload-image/:type', richMenuUpload.single('image'), (req, res) => {
+router.post('/richmenu/upload-image/:type', richMenuUpload.single('image'), validateImageMagic, (req, res) => {
   if (!['tenant','owner'].includes(req.params.type)) return res.status(400).json({ error: 'invalid type' });
   if (!req.file) return res.status(400).json({ error: 'no image' });
   const dest = path.join(richMenuDir, `${req.params.type}.png`);

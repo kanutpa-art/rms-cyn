@@ -8,6 +8,26 @@ const aiService = require('../services/aiService');
 const { getBaseUrl } = require('../utils/url');
 
 // ============================================================
+// In-memory dedup cache — ป้องกัน LINE webhook retry (CHAOS-005)
+// LINE จะ retry webhook สูงสุด 3 ครั้งถ้าไม่ได้รับ 200 ภายใน 3 วินาที
+// Cache TTL = 60 วินาที ครอบคลุม retry window ทั้งหมด
+// ============================================================
+const _processedEvents = new Map(); // eventId → timestamp
+function isEventProcessed(eventId) {
+  const now = Date.now();
+  if (_processedEvents.has(eventId)) return true; // duplicate
+  _processedEvents.set(eventId, now);
+  // cleanup entries older than 60s (ทำ lazy cleanup ทุก 500 entries)
+  if (_processedEvents.size > 500) {
+    const cutoff = now - 60_000;
+    for (const [k, v] of _processedEvents) {
+      if (v < cutoff) _processedEvents.delete(k);
+    }
+  }
+  return false;
+}
+
+// ============================================================
 // Webhook จาก LINE
 // ============================================================
 router.post('/webhook/:dormId', express_raw_body, async (req, res) => {
@@ -121,6 +141,14 @@ async function handleEvent(event, dorm) {
   const userId = event.source?.userId;
   if (!userId) return;
 
+  // ป้องกัน LINE retry ส่ง event ซ้ำ (CHAOS-005)
+  // ใช้ eventId (timestamp:userId) เป็น dedup key
+  const eventKey = `${event.timestamp}:${userId}:${event.type}:${event.message?.id || ''}`;
+  if (isEventProcessed(eventKey)) {
+    console.log(`[LINE] duplicate event skipped: ${eventKey}`);
+    return;
+  }
+
   if (event.type === 'message') {
     db.prepare('INSERT INTO chat_logs (dormitory_id, line_user_id, direction, message_type, content) VALUES (?,?,?,?,?)')
       .run(dorm.id, userId, 'in', event.message.type, event.message.text || event.message.id);
@@ -197,6 +225,17 @@ async function handleImageMessage(event, dorm, userId) {
 
   if (!bill) {
     await lineService.replyMessage(event.replyToken, dorm.id, { type: 'text', text: 'ได้รับรูปแล้วค่ะ แต่ไม่พบบิลที่รอชำระอยู่' });
+    return;
+  }
+
+  // ป้องกัน LINE webhook retry สร้าง payment ซ้ำ (CHAOS-005, 006)
+  const existingPay = db.prepare(
+    "SELECT id FROM payments WHERE bill_id=? AND status IN ('pending','approved')"
+  ).get(bill.id);
+  if (existingPay) {
+    await lineService.replyMessage(event.replyToken, dorm.id, {
+      type: 'text', text: '✅ รับสลิปไปแล้วค่ะ กำลังตรวจสอบอยู่'
+    });
     return;
   }
 

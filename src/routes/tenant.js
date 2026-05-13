@@ -3,29 +3,11 @@ const db = require('../db/database');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { imageFileFilter, makeImageStorage, validateImageMagic } = require('../utils/fileFilter');
 
-// Upload สลิป
-const slipStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/slips');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => cb(null, `slip_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`)
-});
-
-// Upload รูปแจ้งซ่อม
-const maintenanceStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../uploads/maintenance');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => cb(null, `maint_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`)
-});
-
-const uploadSlip = multer({ storage: slipStorage, limits: { fileSize: 5 * 1024 * 1024 } });
-const uploadMaint = multer({ storage: maintenanceStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+// UUID filenames + MIME + magic byte validation
+const uploadSlip  = multer({ storage: makeImageStorage('slips'),       limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFileFilter });
+const uploadMaint = multer({ storage: makeImageStorage('maintenance'),  limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 // ตรวจสอบ LINE session ก่อน
 function requireTenant(req, res, next) {
@@ -142,7 +124,7 @@ router.get('/bills/:id', requireTenant, (req, res) => {
 // ============================================================
 // ส่งสลิป (upload file)
 // ============================================================
-router.post('/bills/:id/pay', requireTenant, uploadSlip.single('slip'), async (req, res) => {
+router.post('/bills/:id/pay', requireTenant, uploadSlip.single('slip'), validateImageMagic, async (req, res) => {
   const { lineUserId, dormitoryId } = req.session;
 
   const bill = db.prepare(`
@@ -186,7 +168,7 @@ router.get('/maintenance', requireTenant, (req, res) => {
   res.json(list);
 });
 
-router.post('/maintenance', requireTenant, uploadMaint.single('image'), async (req, res) => {
+router.post('/maintenance', requireTenant, uploadMaint.single('image'), validateImageMagic, async (req, res) => {
   const { lineUserId, dormitoryId } = req.session;
   const { title, description } = req.body;
 

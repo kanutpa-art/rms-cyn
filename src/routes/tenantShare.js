@@ -3,27 +3,16 @@ const db = require('../db/database');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { imageFileFilter, makeImageStorage, validateImageMagic } = require('../utils/fileFilter');
 
 // ============================================================
 // Uploads (for tenant share — slip + maintenance image)
+// UUID filenames + MIME + magic byte validation
 // ============================================================
-function makeStorage(folder, prefix) {
-  return multer.diskStorage({
-    destination: (req, file, cb) => {
-      const dir = path.join(__dirname, '../../uploads/' + folder);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-      const ext = (path.extname(file.originalname) || '.jpg').toLowerCase();
-      cb(null, `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
-    }
-  });
-}
-const uploadSlip      = multer({ storage: makeStorage('slips','slip'),         limits: { fileSize: 5 * 1024 * 1024 } });
-const uploadMaint     = multer({ storage: makeStorage('maintenance','maint'),  limits: { fileSize: 5 * 1024 * 1024, files: 5 } });
-const uploadMoveOut   = multer({ storage: makeStorage('move_out','mvo'),       limits: { fileSize: 5 * 1024 * 1024, files: 5 } });
-const uploadRenewal   = multer({ storage: makeStorage('renewal','rnw'),        limits: { fileSize: 5 * 1024 * 1024, files: 5 } });
+const uploadSlip    = multer({ storage: makeImageStorage('slips'),       limits: { fileSize: 5 * 1024 * 1024 },       fileFilter: imageFileFilter });
+const uploadMaint   = multer({ storage: makeImageStorage('maintenance'), limits: { fileSize: 5 * 1024 * 1024, files: 5 }, fileFilter: imageFileFilter });
+const uploadMoveOut = multer({ storage: makeImageStorage('move_out'),    limits: { fileSize: 5 * 1024 * 1024, files: 5 }, fileFilter: imageFileFilter });
+const uploadRenewal = multer({ storage: makeImageStorage('renewal'),     limits: { fileSize: 5 * 1024 * 1024, files: 5 }, fileFilter: imageFileFilter });
 
 // ============================================================
 // Helper: resolve tenant from share token
@@ -113,7 +102,7 @@ router.get('/info/:token', (req, res) => {
 // ============================================================
 // MAINTENANCE — submit + list
 // ============================================================
-router.post('/:token/maintenance', uploadMaint.array('images', 5), (req, res) => {
+router.post('/:token/maintenance', uploadMaint.array('images', 5), validateImageMagic, (req, res) => {
   const t = resolveTenant(req.params.token);
   if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
   const { title, description } = req.body;
@@ -140,7 +129,7 @@ router.get('/:token/maintenance', requireTenantToken, (req, res) => {
 // ============================================================
 // MOVE-OUT — submit + status
 // ============================================================
-router.post('/:token/move-out', uploadMoveOut.array('images', 5), (req, res) => {
+router.post('/:token/move-out', uploadMoveOut.array('images', 5), validateImageMagic, (req, res) => {
   const t = resolveTenant(req.params.token);
   if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
   const { requested_date, reason } = req.body;
@@ -166,7 +155,7 @@ router.get('/:token/move-out', requireTenantToken, (req, res) => {
 // ============================================================
 // CONTRACT RENEWAL — submit + status
 // ============================================================
-router.post('/:token/renew', uploadRenewal.array('images', 5), (req, res) => {
+router.post('/:token/renew', uploadRenewal.array('images', 5), validateImageMagic, (req, res) => {
   const t = resolveTenant(req.params.token);
   if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
   const months = parseInt(req.body.months);
@@ -193,12 +182,23 @@ router.get('/:token/renew', requireTenantToken, (req, res) => {
 // ============================================================
 // BILL — pay (upload slip)
 // ============================================================
-router.post('/:token/bills/:id/pay', uploadSlip.single('slip'), (req, res) => {
+router.post('/:token/bills/:id/pay', uploadSlip.single('slip'), validateImageMagic, (req, res) => {
   const t = resolveTenant(req.params.token);
   if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
   const bill = db.prepare('SELECT * FROM bills WHERE id=? AND room_id=?').get(req.params.id, t.room_id);
   if (!bill) return res.status(404).json({ error: 'ไม่พบบิล' });
   if (!req.file) return res.status(400).json({ error: 'กรุณาแนบสลิป' });
+
+  // ป้องกัน payment ซ้ำ (CHAOS-006: double submit / network retry)
+  const existing = db.prepare(
+    "SELECT id FROM payments WHERE bill_id=? AND status IN ('pending','approved')"
+  ).get(bill.id);
+  if (existing) {
+    // ลบไฟล์ที่ upload มาแล้ว เพราะไม่ได้ใช้
+    try { require('fs').unlinkSync(req.file.path); } catch (_) {}
+    return res.status(409).json({ error: 'ส่งสลิปไปแล้ว รอแอดมินตรวจสอบค่ะ', payment_id: existing.id });
+  }
+
   const slipPath = `/uploads/slips/${req.file.filename}`;
   db.prepare(`INSERT INTO payments (bill_id, amount, method, slip_path, status, paid_at)
     VALUES (?,?,?,?,'pending',datetime('now'))`).run(bill.id, bill.total_amount, 'promptpay', slipPath);

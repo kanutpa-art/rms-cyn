@@ -10,6 +10,7 @@ const contractService = require('../services/contractService');
 const financialService = require('../services/financialService');
 const tenantService = require('../services/tenantService');
 const { buildPublicUrl } = require('../utils/url');
+const { paginate } = require('../utils/paginate');
 
 router.use(loadAdmin);
 router.use(requireAdmin);
@@ -216,6 +217,7 @@ router.post('/rooms/:id/invite', (req, res) => {
 router.get('/bills', (req, res) => {
   const { month } = req.query;
   const currentMonth = month || new Date().toISOString().slice(0, 7);
+  const { limit, offset, page } = paginate(req.query, 100, 500);
   const bills = db.prepare(`
     SELECT b.*, r.room_number, r.room_code, t.display_name as tenant_name, t.line_user_id
     FROM bills b
@@ -223,8 +225,13 @@ router.get('/bills', (req, res) => {
     LEFT JOIN tenants t ON r.id = t.room_id
     WHERE r.dormitory_id=? AND b.billing_month=?
     ORDER BY r.building, r.floor, r.room_number
-  `).all(req.dormitoryId, currentMonth);
-  res.json(bills);
+    LIMIT ? OFFSET ?
+  `).all(req.dormitoryId, currentMonth, limit, offset);
+  const total = db.prepare(`
+    SELECT COUNT(*) as c FROM bills b JOIN rooms r ON b.room_id=r.id
+    WHERE r.dormitory_id=? AND b.billing_month=?
+  `).get(req.dormitoryId, currentMonth).c;
+  res.json({ data: bills, page, limit, total });
 });
 
 // คืนเลขมิเตอร์ก่อนหน้าของแต่ละห้อง — ใช้แสดงในฟอร์มออกบิล
@@ -392,14 +399,20 @@ router.post('/payments/:id/reject', async (req, res) => {
 // MAINTENANCE
 // ============================================================
 router.get('/maintenance', (req, res) => {
+  const { status } = req.query;
+  const { limit, offset, page } = paginate(req.query, 50, 200);
+  const params = [req.dormitoryId];
+  let where = 'WHERE r.dormitory_id=?';
+  if (status) { where += ' AND mr.status=?'; params.push(status); }
   const requests = db.prepare(`
     SELECT mr.*, r.room_number, r.room_code, t.display_name as tenant_name
     FROM maintenance_requests mr
     JOIN rooms r ON mr.room_id = r.id
     LEFT JOIN tenants t ON r.id = t.room_id
-    WHERE r.dormitory_id=?
+    ${where}
     ORDER BY mr.created_at DESC
-  `).all(req.dormitoryId);
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
   res.json(requests);
 });
 
@@ -452,14 +465,15 @@ router.post('/collection/run', async (req, res) => {
 });
 
 router.get('/collection/logs', (req, res) => {
+  const { limit, offset, page } = paginate(req.query, 50, 200);
   const logs = db.prepare(`
     SELECT cl.*, b.billing_month, r.room_code, r.room_number
     FROM collection_logs cl
     JOIN bills b ON cl.bill_id=b.id
     JOIN rooms r ON b.room_id=r.id
     WHERE r.dormitory_id=?
-    ORDER BY cl.sent_at DESC LIMIT 100
-  `).all(req.dormitoryId);
+    ORDER BY cl.sent_at DESC LIMIT ? OFFSET ?
+  `).all(req.dormitoryId, limit, offset);
   res.json(logs);
 });
 

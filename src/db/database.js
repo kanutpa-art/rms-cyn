@@ -3,7 +3,12 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, '../../data/rms.db');
+// DATA_DIR: set to '/data' on Render (persistent disk) or custom path
+// Falls back to <project>/data for local dev
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, '../../data');
+const DB_PATH = path.join(DATA_DIR, 'rms.db');
 
 const dataDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -252,6 +257,16 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_fintx_dorm_date ON financial_transactions(dormitory_id, transaction_date);
+
+  -- ============================================================
+  -- SESSIONS (replaces session-file-store; survives restarts)
+  -- ============================================================
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    sess TEXT NOT NULL,
+    expired_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_expired ON sessions(expired_at);
 
   CREATE TABLE IF NOT EXISTS bank_statements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

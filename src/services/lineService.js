@@ -72,12 +72,22 @@ async function downloadImage(dormitoryId, messageId) {
   const token = getToken(dormitoryId);
   if (!token) return null;
 
-  const res = await fetch(`${LINE_API}/message/${messageId}/content`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-
-  if (!res.ok) return null;
-  return res.buffer(); // returns Buffer
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000); // 15s — image download อาจช้า
+  try {
+    const res = await fetch(`${LINE_API}/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal
+    });
+    if (!res.ok) return null;
+    return res.buffer();
+  } catch (err) {
+    if (err.name === 'AbortError') console.warn('[LINE] downloadImage timeout');
+    else console.error('[LINE] downloadImage error:', err.message);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ดึงโปรไฟล์ user จาก LINE
@@ -85,14 +95,20 @@ async function getUserProfile(dormitoryId, userId) {
   const token = getToken(dormitoryId);
   if (!token) return null;
 
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8_000);
   try {
     const res = await fetch(`${LINE_API}/profile/${userId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal
     });
     if (!res.ok) return null;
     return res.json();
-  } catch {
+  } catch (err) {
+    if (err.name === 'AbortError') console.warn('[LINE] getUserProfile timeout');
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

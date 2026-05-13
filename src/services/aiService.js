@@ -402,22 +402,32 @@ async function processMessage(lineUserId, dormitoryId, userMessage) {
   }
 
   try {
-    const res = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { role: 'user', parts: [{ text: sys }] },
-          { role: 'model', parts: [{ text: 'รับทราบค่ะ' }] },
-          { role: 'user', parts: [{ text: userMessage }] }
-        ],
-        generationConfig: { maxOutputTokens: 500, temperature: 0.5 }
-      })
-    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10_000); // 10 วินาที timeout
+    let res;
+    try {
+      res = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          contents: [
+            { role: 'user', parts: [{ text: sys }] },
+            { role: 'model', parts: [{ text: 'รับทราบค่ะ' }] },
+            { role: 'user', parts: [{ text: userMessage }] }
+          ],
+          generationConfig: { maxOutputTokens: 500, temperature: 0.5 }
+        })
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) return 'ขออภัยค่ะ ลองพิมพ์คำสั่งสั้นๆ เช่น "บิล" หรือ "ค่าไฟ" ดูนะคะ';
     const data = await res.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || 'ขออภัยค่ะ ไม่เข้าใจคำถาม';
-  } catch {
+  } catch (err) {
+    if (err.name === 'AbortError') console.warn('[AI] Gemini timeout after 10s');
+    else console.error('[AI] Gemini error:', err.message);
     return 'ขออภัยค่ะ ลองพิมพ์ "บิล" เพื่อดูยอดล่าสุด หรือ "แจ้งซ่อม" ได้เลยค่ะ';
   }
 }

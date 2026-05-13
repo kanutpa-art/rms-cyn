@@ -107,7 +107,15 @@ function determineStage(policy, days) {
 }
 
 function alreadySent(billId, stage) {
-  return db.prepare('SELECT 1 FROM collection_logs WHERE bill_id=? AND stage=?').get(billId, stage);
+  // ตรวจ 2 เงื่อนไข:
+  // 1. เคยส่ง stage นี้ไปแล้ว (ตลอดกาล — ไม่ส่งซ้ำ stage เดิม)
+  // 2. ส่งไปแล้วภายใน 20 ชั่วโมงที่ผ่านมา (flood guard — ป้องกัน spam แม้ stage เดิม)
+  const sentStage = db.prepare('SELECT 1 FROM collection_logs WHERE bill_id=? AND stage=?').get(billId, stage);
+  if (sentStage) return true;
+  const sentRecently = db.prepare(
+    "SELECT 1 FROM collection_logs WHERE bill_id=? AND sent_at > datetime('now','-20 hours')"
+  ).get(billId);
+  return !!sentRecently;
 }
 
 function buildMessage(template, bill) {

@@ -5,6 +5,12 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node scripts/seed.js && node server.js
+    # NOTE: persistent disk requires plan: starter ($7/mo)
+    # ถ้าต้องการข้อมูลไม่หาย uncomment บรรทัดด้านล่างแล้วเปลี่ยน plan เป็น starter
+    # disk:
+    #   name: rms-data
+    #   mountPath: /data
+    #   sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 22.11.0
@@ -16,11 +22,16 @@ services:
         value: https://cyn-jewelry.com/RMS
       - key: SESSION_SECRET
         generateValue: true
+      - key: SEED_DEMO
+        value: "true"
+      # DATA_DIR: uncomment เมื่อ mount persistent disk แล้ว
+      # - key: DATA_DIR
+      #   value: /data
       - key: ADMIN_NAME
-        value: แอดมิน
+        value: เจ้าของหอ
       - key: ADMIN_EMAIL
-        value: admin@cyn-jewelry.com
+        value: admin@rms-demo.com
       - key: ADMIN_PASSWORD
-        value: changeme123
+        value: demo1234
       - key: DORMITORY_NAME
-        value: หอพักทดสอบ
+        value: หอพักสุขใจ (Demo)
