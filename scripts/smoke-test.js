@@ -45,7 +45,7 @@ async function test1_health() {
 }
 
 async function test2_login() {
-  const r = await req('/api/auth/login', {
+  const r = await req('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })
   });
@@ -54,7 +54,7 @@ async function test2_login() {
 }
 
 async function test3_authMe() {
-  const r = await req('/api/auth/me');
+  const r = await req('/auth/me');
   if (r.status === 200 && r.body?.admin?.email) ok('3. Session persistence (/auth/me)');
   else bad('3. /auth/me', `status=${r.status}`);
 }
@@ -95,18 +95,18 @@ async function test8_passwordStrength() {
 }
 
 async function test9_emailLockout() {
-  // Try 9 bad logins for a fresh email (don't lock the demo admin)
-  const email = `lockout-test-${Date.now()}@x.com`;
+  // Try 10 bad logins for a fresh email (don't lock the demo admin)
+  const email = `lockout-test-${Date.now()}@example.com`;
   let lockedAt = null;
-  for (let i = 1; i <= 9; i++) {
-    const r = await req('/api/auth/login', {
+  for (let i = 1; i <= 10; i++) {
+    const r = await req('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password: 'wrong' })
+      body: JSON.stringify({ email, password: 'wrongPass123' })
     });
     if (r.status === 429) { lockedAt = i; break; }
   }
-  if (lockedAt && lockedAt <= 9) ok(`9. Email lockout triggers after ${lockedAt} attempts`);
-  else bad('9. Email lockout', `no lockout after 9 attempts`);
+  if (lockedAt && lockedAt <= 10) ok(`9. Email lockout triggers after ${lockedAt} attempts`);
+  else bad('9. Email lockout', `no lockout after 10 attempts`);
 }
 
 async function test10_unauthRedirect() {

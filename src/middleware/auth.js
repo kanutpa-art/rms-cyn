@@ -7,13 +7,27 @@
 const BASE = (process.env.BASE_PATH || '').replace(/\/$/, '');
 
 // ตรวจสอบว่า admin login แล้วหรือยัง
+// Note: when used inside a Router mounted at /api/admin, req.path is the
+// path WITHIN that router (e.g. "/dormitory"). The full path is
+// req.originalUrl. We use originalUrl + accepts() so API clients get JSON
+// 401 while browser navigations get a redirect.
 function requireAdmin(req, res, next) {
   if (req.session && req.session.adminId) {
     return next();
   }
   const loginPath = BASE + '/admin';
-  if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'Unauthorized', redirect: loginPath });
+  const isApiCall =
+    req.originalUrl.includes('/api/') ||
+    req.xhr ||
+    req.get('accept')?.includes('application/json') ||
+    req.get('content-type')?.includes('application/json');
+
+  if (isApiCall) {
+    return res.status(401).json({
+      error: 'Not authenticated',
+      code: 'AUTH_REQUIRED',
+      redirect: loginPath,
+    });
   }
   res.redirect(loginPath);
 }
