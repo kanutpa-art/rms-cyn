@@ -582,7 +582,17 @@ tryAddColumn('rooms', 'status_updated_at', 'DATETIME');
 tryAddColumn('dormitories', 'setup_completed', 'INTEGER DEFAULT 0');
 tryAddColumn('dormitories', 'rent_due_day', 'INTEGER DEFAULT 5');
 tryAddColumn('dormitories', 'rent_proration_enabled', 'INTEGER DEFAULT 1');
-tryAddColumn('dormitories', 'room_quota', 'INTEGER DEFAULT 30'); // 10/20/30/40/50/60 — license tier
+// Default room quota — ปรับได้ผ่าน env DEFAULT_ROOM_QUOTA (เช่น 10 สำหรับ Free tier)
+const defaultQuota = parseInt(process.env.DEFAULT_ROOM_QUOTA) || 30;
+tryAddColumn('dormitories', 'room_quota', `INTEGER DEFAULT ${defaultQuota}`); // 5/10/30/80 — license tier
+
+// Auto-sync quota to env value for ALL existing dormitories (useful for trial → paid upgrade)
+if (process.env.SYNC_ROOM_QUOTA === 'true') {
+  try {
+    db.prepare('UPDATE dormitories SET room_quota = ? WHERE room_quota != ?').run(defaultQuota, defaultQuota);
+    console.log(`🔄 Synced room_quota=${defaultQuota} for all dormitories`);
+  } catch (e) { console.warn('sync quota failed:', e.message); }
+}
 tryAddColumn('dormitories', 'water_rate_type', "TEXT DEFAULT 'flat'"); // flat | tiered | min_charge
 tryAddColumn('dormitories', 'water_min_charge', 'REAL DEFAULT 0');
 tryAddColumn('dormitories', 'water_tiers_json', 'TEXT');

@@ -36,6 +36,20 @@ services:
         value: "true"
       - key: ENABLE_DEMO_INFO
         value: "true"
+      # ============================================================
+      # ROOM QUOTA — license tier control
+      # 5    = Free tier (freemium)
+      # 10   = Demo / small trial
+      # 30   = Starter ฿1,500/mo
+      # 80   = Pro ฿2,500/mo
+      # 999  = Enterprise (unlimited)
+      # ============================================================
+      - key: DEFAULT_ROOM_QUOTA
+        value: "10"
+      # SYNC_ROOM_QUOTA=true → re-apply DEFAULT_ROOM_QUOTA to ALL dorms on boot
+      # ใช้เพื่อ "upgrade ทุก dorm พร้อมกัน" หรือ "downgrade ตอน trial หมด"
+      - key: SYNC_ROOM_QUOTA
+        value: "true"
       # PASSWORD_SYNC=true: re-hash ADMIN_PASSWORD on every boot
       # (lets owner rotate password by changing env var alone)
       - key: PASSWORD_SYNC
