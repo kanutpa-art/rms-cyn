@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { requireAdmin, loadAdmin } = require('../middleware/auth');
+const { handleValidation, roomValidator, tenantValidator, billValidator } = require('../middleware/validators');
 const db = require('../db/database');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -156,10 +157,9 @@ router.get('/buildings', (req, res) => {
   res.json(list);
 });
 
-router.post('/rooms', (req, res) => {
+router.post('/rooms', roomValidator, handleValidation, (req, res) => {
   const { building, floor, room_number, monthly_rent, notes,
           initial_water_meter, initial_electric_meter } = req.body;
-  if (!room_number || !monthly_rent) return res.status(400).json({ error: 'กรุณากรอกเลขห้องและค่าเช่า' });
 
   const quotaCheck = checkRoomQuota(req.dormitoryId, 1);
   if (!quotaCheck.ok) return res.status(403).json({ error: quotaCheck.error });
@@ -178,7 +178,7 @@ router.post('/rooms', (req, res) => {
   }
 });
 
-router.put('/rooms/:id', (req, res) => {
+router.put('/rooms/:id', roomValidator, handleValidation, (req, res) => {
   const room = db.prepare('SELECT * FROM rooms WHERE id=? AND dormitory_id=?').get(req.params.id, req.dormitoryId);
   if (!room) return res.status(404).json({ error: 'Not found' });
   const { building, floor, room_number, monthly_rent, notes, initial_water_meter, initial_electric_meter } = req.body;

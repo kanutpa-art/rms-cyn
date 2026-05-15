@@ -175,7 +175,8 @@ router.get('/operator/rooms/:id/quick-add-defaults', (req, res) => {
   res.json(d);
 });
 
-router.post('/operator/rooms/:id/quick-add-tenant', (req, res) => {
+const { tenantValidator, handleValidation } = require('../middleware/validators');
+router.post('/operator/rooms/:id/quick-add-tenant', tenantValidator, handleValidation, (req, res) => {
   try {
     const result = quickTenantService.quickAddTenant(
       req.dormitoryId, req.params.id, req.body, req.session.adminId

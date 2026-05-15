@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const db = require('../db/database');
+const { loginValidator, handleValidation } = require('../middleware/validators');
 
 // ============================================================
 // Per-email lockout helpers
@@ -37,7 +38,7 @@ function clearFails(email) {
 }
 
 // Admin Login
-router.post('/login', (req, res) => {
+router.post('/login', loginValidator, handleValidation, (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'กรุณากรอก email และ password' });
   const emailLower = String(email).toLowerCase().trim();

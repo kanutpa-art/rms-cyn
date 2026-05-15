@@ -23,8 +23,17 @@ function serveHtml(htmlPath) {
   return (req, res) => {
     try {
       let html = fs.readFileSync(htmlPath, 'utf8');
+      // Stamp CSP nonce into existing <script> and <style> tags so they pass strict CSP.
+      // Inline event handlers (onclick) still need 'unsafe-inline' — will be eliminated in Phase 2.
+      const nonce = req.cspNonce;
+      if (nonce) {
+        html = html.replace(/<script(?![^>]*\bnonce=)([\s>])/g, `<script nonce="${nonce}"$1`);
+        html = html.replace(/<style(?![^>]*\bnonce=)([\s>])/g, `<style nonce="${nonce}"$1`);
+        // Expose nonce to client-side code so dynamically-injected <script> can use it
+        html = html.replace('</head>', `<meta name="csp-nonce" content="${nonce}"></head>`);
+      }
       if (BASE) {
-        const script = `<script>` +
+        const script = `<script${nonce ? ` nonce="${nonce}"` : ''}>` +
           `(function(){` +
           `var B="${BASE}";` +
           `window.__RMS_BASE__=B;` +
@@ -118,12 +127,71 @@ class SQLiteSessionStore extends session.Store {
 // ============================================================
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+// Override Express's default 'Server: Express' header → generic
+app.use((req, res, next) => {
+  res.setHeader('Server', 'rms');
+  res.removeHeader('X-Powered-By');
+  next();
+});
 
-// Helmet — security headers (CSP disabled to avoid breaking inline scripts)
+// ============================================================
+// CSP nonce — generate a fresh random per request, expose as
+// req.cspNonce so serveHtml() can inject <script nonce="..."> tags.
+// ============================================================
+const crypto = require('crypto');
+app.use((req, res, next) => {
+  req.cspNonce = crypto.randomBytes(16).toString('base64');
+  res.locals.cspNonce = req.cspNonce;
+  next();
+});
+
+// Helmet — full security header bundle with strict CSP
 app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      // Scripts: self + nonce only. unsafe-inline kept as legacy fallback for
+      // browsers that ignore nonces (will be removed once we eliminate inline JS in Phase 2).
+      scriptSrc: [
+        "'self'",
+        (req, res) => `'nonce-${req.cspNonce}'`,
+        "https://cdn.tailwindcss.com",          // Tailwind CDN (Phase 2 → self-host)
+        "https://unpkg.com",                      // Phosphor icons CDN (Phase 2 → self-host)
+        "https://static.line-scdn.net",           // LIFF SDK (when LINE Phase 2 enabled)
+        "'unsafe-inline'",                        // Legacy — drop in Phase 2
+      ],
+      // Styles: tailwind generates inline classes, allow self + inline
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https://profile.line-scdn.net"],
+      connectSrc: ["'self'", "https://api.line.me"],
+      frameAncestors: ["'none'"],                 // = X-Frame-Options: DENY
+      formAction: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // images from LINE CDN don't send CORP
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: {
+    maxAge: 63072000,            // 2 years
+    includeSubDomains: true,
+    preload: true,
+  },
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
 }));
+
+// Permissions-Policy (not in helmet defaults yet)
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy',
+    'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+  );
+  next();
+});
 
 // ============================================================
 // Rate limiters

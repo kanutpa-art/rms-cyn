@@ -748,20 +748,46 @@
       <h3 class="font-bold text-gray-900" id="roomModalTitle">เพิ่มห้องพัก</h3>
       <button onclick="closeModal('roomModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button>
     </div>
-    <form id="roomForm" class="p-6 space-y-4">
+    <form id="roomForm" class="p-6 space-y-4" novalidate>
       <input type="hidden" id="roomId">
       <div class="grid grid-cols-3 gap-4">
-        <div><label class="label">ตึก</label><input name="building" class="input" placeholder="A" maxlength="3" value="A"></div>
-        <div><label class="label">ชั้น</label><input name="floor" type="number" class="input" placeholder="1" value="1"></div>
-        <div><label class="label">เลขห้อง <span class="text-red-500">*</span></label><input name="room_number" class="input" required placeholder="07"></div>
+        <div>
+          <label class="label">ตึก</label>
+          <input name="building" class="input" placeholder="A" maxlength="20" value="A"
+                 pattern="[A-Za-z0-9฀-๿\- ]+" title="ตัวอักษร/ตัวเลข/ไทย เท่านั้น">
+        </div>
+        <div>
+          <label class="label">ชั้น</label>
+          <input name="floor" type="number" class="input" placeholder="1" value="1" min="1" max="100">
+        </div>
+        <div>
+          <label class="label">เลขห้อง <span class="text-red-500">*</span></label>
+          <input name="room_number" class="input" required placeholder="07" maxlength="16"
+                 pattern="[A-Za-z0-9฀-๿\- ]+" title="ตัวอักษร/ตัวเลข/ไทย/ขีดกลาง เท่านั้น">
+        </div>
       </div>
       <p class="text-xs text-gray-400 -mt-2">รหัสห้องจะถูกสร้างเป็น <span class="font-mono font-bold text-gray-700" id="roomCodePreview">A107</span></p>
-      <div><label class="label">ค่าเช่าต่อเดือน (฿) <span class="text-red-500">*</span></label><input name="monthly_rent" type="number" class="input" required placeholder="3500"></div>
-      <div class="grid grid-cols-2 gap-4">
-        <div><label class="label">มิเตอร์น้ำเริ่มต้น</label><input name="initial_water_meter" type="number" class="input" value="0"></div>
-        <div><label class="label">มิเตอร์ไฟเริ่มต้น</label><input name="initial_electric_meter" type="number" class="input" value="0"></div>
+      <div>
+        <label class="label">ค่าเช่าต่อเดือน (฿) <span class="text-red-500">*</span></label>
+        <input name="monthly_rent" type="number" class="input" required placeholder="3500" min="0" max="1000000" step="100">
+        <p class="text-xs text-gray-400 mt-1">0 ถึง 1,000,000 บาท</p>
       </div>
-      <div><label class="label">หมายเหตุ</label><input name="notes" class="input" placeholder="เช่น มีแอร์, ห้องน้ำในตัว"></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">มิเตอร์น้ำเริ่มต้น</label>
+          <input name="initial_water_meter" type="number" class="input" value="0" min="0" max="999999">
+        </div>
+        <div>
+          <label class="label">มิเตอร์ไฟเริ่มต้น</label>
+          <input name="initial_electric_meter" type="number" class="input" value="0" min="0" max="999999">
+        </div>
+      </div>
+      <div>
+        <label class="label">หมายเหตุ</label>
+        <input name="notes" class="input" placeholder="เช่น มีแอร์, ห้องน้ำในตัว" maxlength="500">
+        <p class="text-xs text-gray-400 mt-1"><span id="notesCounter">0</span>/500 ตัวอักษร</p>
+      </div>
+      <div id="roomFormErrors" class="hidden bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-sm"></div>
       <div class="flex gap-3 pt-2">
         <button type="button" onclick="closeModal('roomModal')" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium">ยกเลิก</button>
         <button type="submit" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark">บันทึก</button>
@@ -784,6 +810,39 @@
       <button onclick="shareInviteUrl()" class="flex-1 bg-line text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-line-dark flex items-center justify-center gap-2"><i class="ph ph-share-network"></i>แชร์</button>
     </div>
     <button onclick="closeModal('inviteModal')" class="mt-3 w-full text-sm text-gray-400">ปิด</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     Reusable Confirmation Modal
+     Usage:
+       const ok = await confirmDialog({
+         title: 'ลบห้อง A101?',
+         body: 'การลบจะลบบิลและสัญญาทั้งหมดของห้องนี้ — ไม่สามารถย้อนกลับ',
+         confirmLabel: 'ใช่ ลบเลย',
+         cancelLabel: 'ยกเลิก',
+         danger: true,
+         requireTyping: 'A101'   // optional: user must type this exact string
+       });
+       if (ok) { await api(...) }
+     ============================================================ -->
+<div id="confirmModal" class="fixed inset-0 bg-black/50 z-[9990] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+    <div class="p-5">
+      <div id="confirmIconWrap" class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-red-100 text-red-600">
+        <i id="confirmIcon" class="ph ph-warning text-3xl"></i>
+      </div>
+      <h3 id="confirmTitle" class="text-lg font-bold text-center text-gray-900 mb-2">ยืนยันการดำเนินการ</h3>
+      <p id="confirmBody" class="text-sm text-gray-600 text-center mb-4 whitespace-pre-line"></p>
+      <div id="confirmTypeWrap" class="hidden mb-4">
+        <label class="block text-xs text-gray-500 mb-1">พิมพ์ <code id="confirmTypeText" class="bg-gray-100 px-1 rounded text-red-700 font-mono"></code> เพื่อยืนยัน:</label>
+        <input id="confirmTypeInput" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:border-red-500 outline-none">
+      </div>
+      <div class="flex gap-3">
+        <button id="confirmCancelBtn" type="button" class="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">ยกเลิก</button>
+        <button id="confirmOkBtn" type="button" class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white">ยืนยัน</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1291,12 +1350,63 @@ function navigate(page) {
 // ============================================================
 // API helper
 // ============================================================
+// ============================================================
+// Centralized fetch wrapper — adds CSRF token (Phase 3), handles
+// 401 → login redirect + toast, exposes server validation fields.
+// ============================================================
 async function api(path, opts = {}) {
-  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
-  if (r.status === 401) { showLogin(); throw new Error('Unauthorized'); }
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'Error');
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  // Carry the CSRF token automatically on mutating requests (Phase 3 ready)
+  const method = (opts.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const csrf = document.cookie.match(/(?:^|; )csrf-token=([^;]+)/);
+    if (csrf) headers['X-CSRF-Token'] = decodeURIComponent(csrf[1]);
+  }
+  const r = await fetch(path, { ...opts, headers, credentials: 'same-origin' });
+  if (r.status === 401) {
+    // Session expired → show toast + return to login
+    showToast('Session หมดอายุ กรุณา login ใหม่', 'warning');
+    setTimeout(() => { showLogin(); }, 1200);
+    throw Object.assign(new Error('Unauthorized'), { code: 'AUTH_REQUIRED', status: 401 });
+  }
+  let data = null;
+  try { data = await r.json(); } catch (_) { data = {}; }
+  if (!r.ok) {
+    const err = new Error(data.error || `HTTP ${r.status}`);
+    err.status = r.status;
+    err.code = data.code;
+    err.fields = data.fields || null;
+    throw err;
+  }
   return data;
+}
+
+// ============================================================
+// Toast notification (used by api() for 401 + general feedback)
+// ============================================================
+function showToast(msg, level = 'info', ms = 3000) {
+  let root = document.getElementById('toastRoot');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'toastRoot';
+    root.className = 'fixed top-4 right-4 z-[9999] space-y-2 pointer-events-none';
+    document.body.appendChild(root);
+  }
+  const colors = {
+    info:    'bg-blue-600',
+    success: 'bg-emerald-600',
+    warning: 'bg-amber-500',
+    error:   'bg-red-600',
+  };
+  const t = document.createElement('div');
+  t.className = `${colors[level] || colors.info} text-white px-4 py-3 rounded-xl shadow-lg text-sm pointer-events-auto opacity-0 transition-opacity duration-200`;
+  t.textContent = msg;
+  root.appendChild(t);
+  requestAnimationFrame(() => t.classList.remove('opacity-0'));
+  setTimeout(() => {
+    t.classList.add('opacity-0');
+    setTimeout(() => t.remove(), 250);
+  }, ms);
 }
 
 // ============================================================
@@ -1473,16 +1583,164 @@ function updateRoomCodePreview() {
 }
 document.getElementById('roomForm').addEventListener('input', updateRoomCodePreview);
 
+// Live char counter for notes
+document.querySelector('#roomForm [name="notes"]')?.addEventListener('input', e => {
+  document.getElementById('notesCounter').textContent = e.target.value.length;
+});
+
+// Client-side validation before submit (HTML5 + custom messages)
+function validateRoomForm(form) {
+  const errors = [];
+  const rn = form.room_number.value.trim();
+  if (!rn) errors.push('กรุณากรอกเลขห้อง');
+  else if (!/^[A-Za-z0-9฀-๿\- ]+$/.test(rn)) errors.push('เลขห้องมีอักขระไม่ถูกต้อง');
+  else if (rn.length > 16) errors.push('เลขห้องยาวเกินไป (สูงสุด 16)');
+
+  const rent = parseFloat(form.monthly_rent.value);
+  if (isNaN(rent) || rent < 0 || rent > 1_000_000) errors.push('ค่าเช่าต้อง 0-1,000,000 บาท');
+
+  const w = parseInt(form.initial_water_meter.value);
+  if (form.initial_water_meter.value && (isNaN(w) || w < 0 || w > 999_999)) errors.push('มิเตอร์น้ำต้อง 0-999,999');
+
+  const el = parseInt(form.initial_electric_meter.value);
+  if (form.initial_electric_meter.value && (isNaN(el) || el < 0 || el > 999_999)) errors.push('มิเตอร์ไฟต้อง 0-999,999');
+
+  if (form.notes.value.length > 500) errors.push('หมายเหตุยาวเกิน 500 ตัวอักษร');
+
+  return errors;
+}
+
+function showFormErrors(containerId, errors, serverFields) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const list = [];
+  if (errors?.length) list.push(...errors);
+  if (serverFields) Object.entries(serverFields).forEach(([k, v]) => list.push(`• ${v}`));
+  if (list.length) {
+    box.innerHTML = list.map(e => `<div>• ${e}</div>`).join('');
+    box.classList.remove('hidden');
+  } else {
+    box.classList.add('hidden');
+  }
+}
+
 document.getElementById('roomForm').addEventListener('submit', async e => {
   e.preventDefault();
+  const form = e.target;
+  const errBox = 'roomFormErrors';
+  showFormErrors(errBox, [], null);
+
+  const clientErrors = validateRoomForm(form);
+  if (clientErrors.length) { showFormErrors(errBox, clientErrors); return; }
+
   const id = document.getElementById('roomId').value;
-  const data = Object.fromEntries(new FormData(e.target));
+  const data = Object.fromEntries(new FormData(form));
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) btn.disabled = true;
   try {
     if (id) await api(`/api/admin/rooms/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     else await api('/api/admin/rooms', { method: 'POST', body: JSON.stringify(data) });
     closeModal('roomModal'); loadRooms();
-  } catch(err) { alert(err.message); }
+  } catch (err) {
+    // Server may return { error, fields: { field: msg } } from express-validator
+    let serverFields = null;
+    try { serverFields = err.fields || (err.body && err.body.fields) || null; } catch (_) {}
+    showFormErrors(errBox, [err.message || 'เกิดข้อผิดพลาด'], serverFields);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 });
+
+// ============================================================
+// confirmDialog() — Promise-based, reusable, keyboard-friendly
+// Returns: Promise<boolean>
+// ============================================================
+let _confirmInFlight = null;
+function confirmDialog(opts = {}) {
+  const {
+    title = 'ยืนยันการดำเนินการ',
+    body = 'ดำเนินการต่อหรือไม่?',
+    confirmLabel = 'ยืนยัน',
+    cancelLabel = 'ยกเลิก',
+    danger = false,
+    icon = danger ? 'ph-warning' : 'ph-question',
+    requireTyping = null,   // string the user must type, or null
+  } = opts;
+
+  // If a dialog is already open, reject the new request
+  if (_confirmInFlight) return Promise.resolve(false);
+
+  const modal = document.getElementById('confirmModal');
+  const titleEl = document.getElementById('confirmTitle');
+  const bodyEl = document.getElementById('confirmBody');
+  const okBtn = document.getElementById('confirmOkBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  const iconEl = document.getElementById('confirmIcon');
+  const iconWrap = document.getElementById('confirmIconWrap');
+  const typeWrap = document.getElementById('confirmTypeWrap');
+  const typeText = document.getElementById('confirmTypeText');
+  const typeInput = document.getElementById('confirmTypeInput');
+
+  titleEl.textContent = title;
+  bodyEl.textContent = body;
+  okBtn.textContent = confirmLabel;
+  cancelBtn.textContent = cancelLabel;
+  iconEl.className = `ph ${icon} text-3xl`;
+  iconWrap.className = `w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+    danger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+  }`;
+  okBtn.className = `flex-1 py-2.5 rounded-xl text-sm font-semibold text-white ${
+    danger ? 'bg-red-600 hover:bg-red-700' : 'bg-line hover:bg-line-dark'
+  }`;
+
+  // Type-to-confirm mode (for destructive irreversible ops)
+  if (requireTyping) {
+    typeText.textContent = requireTyping;
+    typeInput.value = '';
+    typeWrap.classList.remove('hidden');
+    okBtn.disabled = true;
+    okBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    typeInput.oninput = () => {
+      const match = typeInput.value === requireTyping;
+      okBtn.disabled = !match;
+      okBtn.classList.toggle('opacity-50', !match);
+      okBtn.classList.toggle('cursor-not-allowed', !match);
+    };
+  } else {
+    typeWrap.classList.add('hidden');
+    okBtn.disabled = false;
+    okBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  return new Promise(resolve => {
+    _confirmInFlight = resolve;
+    const cleanup = (result) => {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      typeInput.oninput = null;
+      document.removeEventListener('keydown', onKey);
+      _confirmInFlight = null;
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') cleanup(false);
+      if (e.key === 'Enter' && !okBtn.disabled && document.activeElement !== typeInput) cleanup(true);
+    };
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    document.addEventListener('keydown', onKey);
+
+    // Auto-focus
+    setTimeout(() => {
+      (requireTyping ? typeInput : cancelBtn).focus();
+    }, 50);
+  });
+}
 
 // CSV export — opens in new tab; session cookie auto-sent
 function exportCsv(type) {
@@ -1547,12 +1805,32 @@ function shareInviteUrl() {
   else copyInviteUrl();
 }
 async function confirmCheckout(id, code) {
-  if (!confirm(`ยืนยัน Checkout ห้อง ${code}?`)) return;
-  try { await api(`/api/admin/rooms/${id}/checkout`, { method: 'POST' }); loadRooms(); } catch(err) { alert(err.message); }
+  const ok = await confirmDialog({
+    title: `Checkout ห้อง ${code}?`,
+    body: 'ระบบจะยกเลิกผู้เช่าและเปลี่ยนสถานะห้องเป็นว่าง — ใช้กรณีย้ายออกเท่านั้น',
+    confirmLabel: 'Checkout',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+    icon: 'ph-door-open'
+  });
+  if (!ok) return;
+  try { await api(`/api/admin/rooms/${id}/checkout`, { method: 'POST' }); loadRooms(); showToast('Checkout สำเร็จ', 'success'); }
+  catch (err) { showToast(err.message, 'error'); }
 }
+
 async function confirmDelete(id, code) {
-  if (!confirm(`ลบห้อง ${code}? ข้อมูลทั้งหมดจะหายไปถาวร`)) return;
-  try { await api(`/api/admin/rooms/${id}`, { method: 'DELETE' }); loadRooms(); } catch(err) { alert(err.message); }
+  const ok = await confirmDialog({
+    title: `ลบห้อง ${code}?`,
+    body: 'การลบจะทำลายข้อมูลห้อง บิล สัญญา ทั้งหมด — ไม่สามารถย้อนกลับ\nพิมพ์รหัสห้องด้านล่างเพื่อยืนยัน',
+    confirmLabel: 'ลบถาวร',
+    cancelLabel: 'ยกเลิก',
+    danger: true,
+    icon: 'ph-trash',
+    requireTyping: code
+  });
+  if (!ok) return;
+  try { await api(`/api/admin/rooms/${id}`, { method: 'DELETE' }); loadRooms(); showToast('ลบห้องสำเร็จ', 'success'); }
+  catch (err) { showToast(err.message, 'error'); }
 }
 
 // ============================================================
@@ -1966,7 +2244,7 @@ document.getElementById('contractForm').addEventListener('submit', async e => {
 });
 
 async function deleteContract(id) {
-  if (!confirm('ลบสัญญานี้?')) return;
+  if (!await confirmDialog({ title: 'ลบสัญญานี้?', body: 'จะลบสัญญาเช่าและประวัติที่เกี่ยวข้อง — ตรวจให้แน่ใจ', confirmLabel: 'ลบ', danger: true, icon: 'ph-trash' })) return;
   try { await api(`/api/admin/contracts/${id}`, { method: 'DELETE' }); loadContracts(); } catch(err) { alert(err.message); }
 }
 
@@ -2605,9 +2883,16 @@ document.getElementById('blacklistForm').addEventListener('submit', async e => {
   closeModal('blacklistModal'); loadBlacklist();
 });
 async function removeBlacklist(id) {
-  if (!confirm('ลบ?')) return;
-  await api(`/api/admin/blacklist/${id}`, { method:'DELETE' });
-  loadBlacklist();
+  const ok = await confirmDialog({
+    title: 'ลบรายชื่อ Blacklist?',
+    body: 'รายชื่อนี้จะถูกลบจากรายการห้ามเช่า — สามารถเพิ่มใหม่ภายหลังได้',
+    confirmLabel: 'ลบ',
+    danger: true,
+    icon: 'ph-prohibit'
+  });
+  if (!ok) return;
+  try { await api(`/api/admin/blacklist/${id}`, { method:'DELETE' }); showToast('ลบสำเร็จ', 'success'); loadBlacklist(); }
+  catch (err) { showToast(err.message, 'error'); }
 }
 
 // ============================================================
