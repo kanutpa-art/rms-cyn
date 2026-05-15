@@ -349,13 +349,17 @@
 
       <div class="info-box">
         <span class="icon">📋</span>
-        <strong>เราจะตั้งค่า 6 อย่าง:</strong><br>
+        <strong>เราจะตั้งค่า 5 อย่าง:</strong><br>
         1. ข้อมูลหอพัก (ชื่อ ที่อยู่)<br>
         2. ค่าน้ำ-ค่าไฟ<br>
         3. บัญชีรับชำระเงิน (PromptPay)<br>
         4. ห้องพักของคุณ<br>
-        5. เชื่อมต่อ LINE (ถ้ามี — ข้ามได้)<br>
-        6. ตรวจสอบและเสร็จสิ้น
+        5. ตรวจสอบและเสร็จสิ้น
+      </div>
+      <div class="info-box" style="background:#f3e8ff; border-left-color:#7c3aed; color:#4c1d95;">
+        <span class="icon">🚀</span>
+        <strong>กำลังพัฒนา (Phase 2):</strong> การเชื่อมต่อ LINE OA และ AI สำหรับอ่านสลิปอัตโนมัติ
+        จะเพิ่มในเวอร์ชันถัดไป ตอนนี้ใช้งานผ่านหน้าเว็บได้เต็มฟังก์ชันค่ะ
       </div>
 
       <div class="info-box warning">
@@ -540,9 +544,9 @@
   </div>
 
   <!-- ============================================================
-       STEP 6: LINE (OPTIONAL)
+       STEP 6: LINE — HIDDEN (Phase 2 roadmap)
        ============================================================ -->
-  <div class="step-content" data-step="6">
+  <div class="step-content" data-step="99" style="display:none !important;">
     <div class="card">
       <h2>📱 เชื่อมต่อ LINE</h2>
       <p class="desc">เชื่อมต่อ LINE OA เพื่อให้ผู้เช่าได้รับแจ้งเตือนอัตโนมัติ</p>
@@ -589,9 +593,9 @@
   </div>
 
   <!-- ============================================================
-       STEP 7: SUMMARY & FINISH
+       STEP 6: SUMMARY & FINISH (was step 7 before LINE step was removed)
        ============================================================ -->
-  <div class="step-content" data-step="7">
+  <div class="step-content" data-step="6">
     <div class="card">
       <div class="big-icon">🎉</div>
       <h2 style="text-align:center;">เสร็จเรียบร้อย!</h2>
@@ -606,7 +610,6 @@
         <li><span class="key">⚡ ค่าไฟ:</span> <span class="value" id="sumElec">-</span></li>
         <li><span class="key">💳 PromptPay:</span> <span class="value" id="sumPP">-</span></li>
         <li><span class="key">🏘️ ห้องพักทั้งหมด:</span> <span class="value" id="sumRooms">-</span> ห้อง</li>
-        <li><span class="key">📱 LINE:</span> <span class="value" id="sumLine">-</span></li>
       </ul>
 
       <div class="info-box success">
@@ -631,14 +634,15 @@
   // CONFIG
   // ============================================================
   const BASE = window.__RMS_BASE__ || '';
+  // Note: LINE integration step is on hold (Phase 2 roadmap)
+  // ดูคู่มือทดสอบ DEMO_GUIDE.md สำหรับขั้นตอนใช้งาน
   const STEPS = [
     { num: 1, label: 'ยินดีต้อนรับ' },
     { num: 2, label: 'ข้อมูล' },
     { num: 3, label: 'ค่าน้ำ-ไฟ' },
     { num: 4, label: 'รับเงิน' },
     { num: 5, label: 'ห้องพัก' },
-    { num: 6, label: 'LINE' },
-    { num: 7, label: 'เสร็จสิ้น' }
+    { num: 6, label: 'เสร็จสิ้น' }
   ];
 
   let currentStep = 1;
@@ -713,7 +717,7 @@
     currentStep = n;
     updateStepDots();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (n === 7) renderSummary();
+    if (n === 6) renderSummary();
   }
 
   function nextStep() { if (currentStep < STEPS.length) showStep(currentStep + 1); }
@@ -852,8 +856,6 @@
       document.getElementById('sumElec').textContent = `${d.electric_rate || 0} บาท/หน่วย`;
       document.getElementById('sumPP').textContent = d.promptpay_number || '(ยังไม่ได้ตั้งค่า)';
       document.getElementById('sumRooms').textContent = status.room_count || 0;
-      const lineConfig = await fetch(BASE + '/api/admin/dormitory', { credentials: 'include' }).then(r => r.json()).catch(() => ({}));
-      document.getElementById('sumLine').textContent = lineConfig.line_channel_access_token ? '✅ เชื่อมต่อแล้ว' : '⚪ ยังไม่เชื่อมต่อ';
     } catch (e) {
       console.warn('Summary load failed:', e);
     }

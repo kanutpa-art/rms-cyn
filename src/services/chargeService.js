@@ -133,11 +133,11 @@ function getSetupState(dormitoryId) {
   const dorm = db.prepare('SELECT * FROM dormitories WHERE id=?').get(dormitoryId);
   if (!dorm) return null;
 
+  // Note: line_integration check removed (Phase 2 roadmap)
   const checks = {
     basic_info: !!(dorm.name && dorm.address),
     utility_rates: !!(dorm.water_rate && dorm.electric_rate),
     promptpay: !!(dorm.promptpay_number && dorm.promptpay_name),
-    line_integration: !!(dorm.line_channel_id && dorm.line_channel_secret && dorm.line_channel_access_token),
     charges_configured: db.prepare('SELECT COUNT(*) as c FROM dormitory_charges WHERE dormitory_id=?').get(dormitoryId).c > 0,
     has_rooms: db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(dormitoryId).c > 0
   };
@@ -145,7 +145,7 @@ function getSetupState(dormitoryId) {
   const completedSteps = Object.values(checks).filter(Boolean).length;
   const totalSteps = Object.keys(checks).length;
 
-  // จำเป็นจริง ๆ ที่ต้องมี: ห้องและค่าไฟ-น้ำ — ส่วน LINE ตั้งทีหลังได้
+  // จำเป็นจริง ๆ ที่ต้องมี: ห้องและค่าไฟ-น้ำ — ส่วน PromptPay/Charges ตั้งทีหลังได้
   const minimumReady = checks.basic_info && checks.utility_rates && checks.has_rooms;
 
   return {
@@ -154,8 +154,7 @@ function getSetupState(dormitoryId) {
     checks,
     completed_steps: completedSteps,
     total_steps: totalSteps,
-    // อนุญาต Operator เมื่อ: ผู้ใช้กดยืนยันแล้ว หรือ ตั้งค่า ≥5 หรือ พื้นฐานครบแล้ว
-    can_use_operator: !!dorm.setup_completed || completedSteps >= 5 || minimumReady
+    can_use_operator: !!dorm.setup_completed || completedSteps >= 4 || minimumReady
   };
 }
 

@@ -98,8 +98,9 @@
     <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition owner-only" data-page="license"><i class="ph ph-certificate"></i>License & กำหนดชำระ</a>
     <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="prorate"><i class="ph ph-calculator"></i>คิดค่าเช่าเดือนแรก</a>
     <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition owner-only" data-page="operatorperms"><i class="ph ph-shield-check"></i>สิทธิ์ Operator</a>
-    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="line-features"><i class="ph ph-chat-circle-dots"></i>LINE Rich Menu + ประกาศ</a>
-    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="account"><i class="ph ph-user-circle"></i>บัญชี + LINE</a>
+    <!-- LINE features on hold (Phase 2 roadmap) — hidden via display:none -->
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="line-features" style="display:none"><i class="ph ph-chat-circle-dots"></i>LINE Rich Menu + ประกาศ</a>
+    <a href="#" class="nav-link flex items-center gap-3 px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg mx-2 transition" data-page="account"><i class="ph ph-user-circle"></i>บัญชีของฉัน</a>
   </nav>
   <div class="p-4 border-t border-gray-100">
     <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition"><i class="ph ph-sign-out"></i>ออกจากระบบ</button>
@@ -303,7 +304,16 @@
           <button type="submit" class="btn-primary w-full">บันทึกข้อมูลหอพัก</button>
         </form>
       </div>
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <!-- LINE Integration on hold — Phase 2 roadmap. Hidden but preserved. -->
+      <div class="bg-purple-50 rounded-2xl border border-purple-200 p-6">
+        <h3 class="font-bold text-purple-900 mb-2 flex items-center gap-2"><i class="ph ph-rocket"></i>กำลังพัฒนา (Phase 2)</h3>
+        <p class="text-sm text-purple-800">
+          การเชื่อมต่อ <strong>LINE OA</strong> สำหรับแจ้งเตือนผู้เช่าอัตโนมัติ
+          และ <strong>AI</strong> สำหรับอ่านสลิปอัตโนมัติ จะเปิดให้ใช้ในเวอร์ชันถัดไป
+        </p>
+        <p class="text-xs text-purple-600 mt-2">ตอนนี้ระบบใช้งานผ่านหน้าเว็บได้เต็มฟังก์ชัน ไม่จำเป็นต้องตั้งค่าเพิ่ม</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" style="display:none">
         <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-chat-teardrop-text text-line"></i>LINE Integration</h3>
         <form id="lineForm" class="space-y-4">
           <div><label class="label">LINE Channel ID</label><input name="line_channel_id" class="input"></div>
@@ -322,7 +332,7 @@
 
   <!-- ACCOUNT -->
   <div id="page-account" class="page p-8 fade-in">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">บัญชี & LINE Link</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">บัญชีของฉัน</h2>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-link text-line"></i>ผูก LINE กับบัญชีแอดมิน</h3>
@@ -2622,11 +2632,11 @@ async function loadSetupWizard() {
     document.getElementById('setupProgress').textContent = pct + '%';
     document.getElementById('setupBar').style.width = pct + '%';
 
+    // LINE step removed from checklist (Phase 2 roadmap)
     const stepLabels = {
       basic_info: { title:'ข้อมูลหอพัก', desc:'ชื่อ + ที่อยู่', goto:'settings', icon:'ph-buildings' },
       utility_rates: { title:'ค่าน้ำ-ค่าไฟ', desc:'อัตราต่อหน่วย', goto:'settings', icon:'ph-drop' },
       promptpay: { title:'พร้อมเพย์', desc:'เบอร์ + ชื่อบัญชี', goto:'settings', icon:'ph-qr-code' },
-      line_integration: { title:'LINE Channel', desc:'Channel ID/Secret/Token', goto:'settings', icon:'ph-chat-circle' },
       charges_configured: { title:'ค่ามัดจำ & รายการเก็บ', desc:'มัดจำห้อง/กุญแจ/อื่นๆ', goto:'charges', icon:'ph-coin' },
       has_rooms: { title:'เพิ่มห้องพัก', desc:'อย่างน้อย 1 ห้อง', goto:'rooms', icon:'ph-door' }
     };
