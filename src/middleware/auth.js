@@ -1,12 +1,21 @@
+// ============================================================
+// AUTH MIDDLEWARE
+// ============================================================
+// Note: BASE_PATH must be respected — when deployed at /RMS,
+// redirects without it land outside the Vercel rewrite → 404.
+// ============================================================
+const BASE = (process.env.BASE_PATH || '').replace(/\/$/, '');
+
 // ตรวจสอบว่า admin login แล้วหรือยัง
 function requireAdmin(req, res, next) {
   if (req.session && req.session.adminId) {
     return next();
   }
+  const loginPath = BASE + '/admin';
   if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'Unauthorized', redirect: '/admin/login' });
+    return res.status(401).json({ error: 'Unauthorized', redirect: loginPath });
   }
-  res.redirect('/admin/login');
+  res.redirect(loginPath);
 }
 
 // แนบข้อมูล admin เข้า req.admin

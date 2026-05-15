@@ -19,6 +19,17 @@ function buildRoomCode(building, floor, roomNumber) {
   return `${(building || 'A').toUpperCase()}${floor || 1}${roomNumber}`;
 }
 
+// Single source of truth for room quota — used by single + bulk creation
+function checkRoomQuota(dormitoryId, adding = 1) {
+  const dorm = db.prepare('SELECT room_quota FROM dormitories WHERE id=?').get(dormitoryId);
+  const quota = dorm?.room_quota || 30;
+  const used = db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(dormitoryId).c;
+  if (used + adding > quota) {
+    return { ok: false, used, quota, error: `เกินโควต้า ${quota} ห้อง (มีอยู่ ${used} ห้อง พยายามเพิ่ม ${adding}) — กรุณาอัปเกรด License` };
+  }
+  return { ok: true, used, quota };
+}
+
 // ============================================================
 // DORMITORY
 // ============================================================
@@ -150,13 +161,8 @@ router.post('/rooms', (req, res) => {
           initial_water_meter, initial_electric_meter } = req.body;
   if (!room_number || !monthly_rent) return res.status(400).json({ error: 'กรุณากรอกเลขห้องและค่าเช่า' });
 
-  // ตรวจ quota
-  const dorm = db.prepare('SELECT room_quota FROM dormitories WHERE id=?').get(req.dormitoryId);
-  const quota = dorm?.room_quota || 30;
-  const used = db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(req.dormitoryId).c;
-  if (used >= quota) {
-    return res.status(403).json({ error: `เกินโควต้า ${quota} ห้อง — กรุณาอัปเกรด License ในหน้าตั้งค่า` });
-  }
+  const quotaCheck = checkRoomQuota(req.dormitoryId, 1);
+  if (!quotaCheck.ok) return res.status(403).json({ error: quotaCheck.error });
 
   const code = buildRoomCode(building, floor, room_number);
   try {
@@ -530,14 +536,35 @@ router.get('/contracts/:id/render', (req, res) => {
 // ============================================================
 // ADMIN ACCOUNT
 // ============================================================
+// Password strength validator
+function validatePassword(pw) {
+  if (!pw || typeof pw !== 'string') return 'กรุณากรอกรหัสผ่าน';
+  if (pw.length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+  if (pw.length > 128) return 'รหัสผ่านยาวเกินไป (max 128)';
+  if (!/[a-zA-Z]/.test(pw)) return 'รหัสผ่านต้องมีตัวอักษร (a-z หรือ A-Z)';
+  if (!/[0-9]/.test(pw)) return 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว';
+  // เปิดเช็คนี้หลังจาก enforce ได้ค่อยเปิด
+  // if (/^(\d+|[a-z]+|[A-Z]+)$/.test(pw)) return 'รหัสผ่านง่ายเกินไป';
+  return null;
+}
+module.exports._validatePassword = validatePassword;
+
 router.put('/account/password', (req, res) => {
   const { current_password, new_password } = req.body;
+  const err = validatePassword(new_password);
+  if (err) return res.status(400).json({ error: err });
   const admin = db.prepare('SELECT * FROM admin_users WHERE id=?').get(req.session.adminId);
-  if (!bcrypt.compareSync(current_password, admin.password_hash)) {
+  if (!bcrypt.compareSync(current_password || '', admin.password_hash)) {
     return res.status(400).json({ error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+  }
+  if (current_password === new_password) {
+    return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องไม่ตรงกับรหัสผ่านเดิม' });
   }
   db.prepare('UPDATE admin_users SET password_hash=? WHERE id=?')
     .run(bcrypt.hashSync(new_password, 10), req.session.adminId);
+  // Audit
+  db.prepare("INSERT INTO admin_audit_log (admin_user_id, action, details) VALUES (?,?,?)")
+    .run(req.session.adminId, 'password_change', JSON.stringify({ at: new Date().toISOString() }));
   res.json({ success: true });
 });
 
@@ -553,6 +580,105 @@ router.post('/account/line-link-token', (req, res) => {
   db.prepare('INSERT INTO admin_link_tokens (admin_user_id, token, expires_at) VALUES (?,?,?)')
     .run(req.session.adminId, token, expiresAt);
   res.json({ token, url: buildPublicUrl(req, `/admin-link/${token}`), expires_at: expiresAt });
+});
+
+// ============================================================
+// CSV EXPORT — bills & tenants (for offline backup / accounting)
+// ============================================================
+function toCsv(rows, columns) {
+  const esc = v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n\r]/.test(s) ? `"${s}"` : s;
+  };
+  const header = columns.map(c => esc(c.label)).join(',');
+  const body = rows.map(r => columns.map(c => esc(r[c.key])).join(',')).join('\n');
+  return '﻿' + header + '\n' + body; // UTF-8 BOM for Excel
+}
+
+router.get('/export/bills.csv', (req, res) => {
+  const rows = db.prepare(`
+    SELECT b.id, b.billing_month, r.room_code, r.room_number, t.display_name as tenant_name,
+           b.rent_amount, b.water_amount, b.electric_amount, b.total_amount,
+           b.status, b.due_date, b.paid_at
+    FROM bills b
+    JOIN rooms r ON b.room_id = r.id
+    LEFT JOIN tenants t ON r.id = t.room_id
+    WHERE r.dormitory_id = ?
+    ORDER BY b.billing_month DESC, r.room_code
+  `).all(req.dormitoryId);
+  const csv = toCsv(rows, [
+    { key: 'id', label: 'BillID' },
+    { key: 'billing_month', label: 'เดือน' },
+    { key: 'room_code', label: 'รหัสห้อง' },
+    { key: 'room_number', label: 'เลขห้อง' },
+    { key: 'tenant_name', label: 'ผู้เช่า' },
+    { key: 'rent_amount', label: 'ค่าเช่า' },
+    { key: 'water_amount', label: 'ค่าน้ำ' },
+    { key: 'electric_amount', label: 'ค่าไฟ' },
+    { key: 'total_amount', label: 'ยอดรวม' },
+    { key: 'status', label: 'สถานะ' },
+    { key: 'due_date', label: 'กำหนดชำระ' },
+    { key: 'paid_at', label: 'วันที่ชำระ' }
+  ]);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="bills-${new Date().toISOString().slice(0,10)}.csv"`);
+  res.send(csv);
+});
+
+router.get('/export/tenants.csv', (req, res) => {
+  const rows = db.prepare(`
+    SELECT t.id, r.room_code, r.room_number, t.display_name, t.phone, t.id_card,
+           t.contract_start_date, t.move_in_date, t.deposit_amount,
+           t.emergency_name, t.emergency_phone
+    FROM tenants t
+    JOIN rooms r ON t.room_id = r.id
+    WHERE r.dormitory_id = ?
+    ORDER BY r.room_code
+  `).all(req.dormitoryId);
+  const csv = toCsv(rows, [
+    { key: 'id', label: 'TenantID' },
+    { key: 'room_code', label: 'รหัสห้อง' },
+    { key: 'room_number', label: 'เลขห้อง' },
+    { key: 'display_name', label: 'ชื่อ' },
+    { key: 'phone', label: 'เบอร์โทร' },
+    { key: 'id_card', label: 'เลขบัตร ปชช.' },
+    { key: 'contract_start_date', label: 'วันเริ่มสัญญา' },
+    { key: 'move_in_date', label: 'วันเข้าอยู่' },
+    { key: 'deposit_amount', label: 'ค่ามัดจำ' },
+    { key: 'emergency_name', label: 'ผู้ติดต่อฉุกเฉิน' },
+    { key: 'emergency_phone', label: 'เบอร์ฉุกเฉิน' }
+  ]);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="tenants-${new Date().toISOString().slice(0,10)}.csv"`);
+  res.send(csv);
+});
+
+router.get('/export/payments.csv', (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.id, p.bill_id, r.room_code, t.display_name as tenant_name,
+           p.amount, p.status, p.submitted_at, p.approved_at, p.approved_by
+    FROM payments p
+    JOIN bills b ON p.bill_id = b.id
+    JOIN rooms r ON b.room_id = r.id
+    LEFT JOIN tenants t ON r.id = t.room_id
+    WHERE r.dormitory_id = ?
+    ORDER BY p.submitted_at DESC
+  `).all(req.dormitoryId);
+  const csv = toCsv(rows, [
+    { key: 'id', label: 'PaymentID' },
+    { key: 'bill_id', label: 'BillID' },
+    { key: 'room_code', label: 'รหัสห้อง' },
+    { key: 'tenant_name', label: 'ผู้เช่า' },
+    { key: 'amount', label: 'จำนวนเงิน' },
+    { key: 'status', label: 'สถานะ' },
+    { key: 'submitted_at', label: 'ส่งสลิป' },
+    { key: 'approved_at', label: 'อนุมัติเมื่อ' },
+    { key: 'approved_by', label: 'อนุมัติโดย' }
+  ]);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="payments-${new Date().toISOString().slice(0,10)}.csv"`);
+  res.send(csv);
 });
 
 router.delete('/account/line-link', (req, res) => {
@@ -595,12 +721,8 @@ router.post('/setup/rooms/bulk', (req, res) => {
     return res.status(400).json({ error: 'กรุณาระบุรายการห้อง' });
   }
 
-  const dorm = db.prepare('SELECT room_quota FROM dormitories WHERE id=?').get(req.dormitoryId);
-  const quota = dorm?.room_quota || 30;
-  const used = db.prepare('SELECT COUNT(*) as c FROM rooms WHERE dormitory_id=?').get(req.dormitoryId).c;
-  if (used + rooms.length > quota) {
-    return res.status(403).json({ error: `เกินโควต้า ${quota} ห้อง (มีอยู่ ${used} ห้อง พยายามเพิ่ม ${rooms.length})` });
-  }
+  const quotaCheck = checkRoomQuota(req.dormitoryId, rooms.length);
+  if (!quotaCheck.ok) return res.status(403).json({ error: quotaCheck.error });
 
   const stmt = db.prepare(`
     INSERT INTO rooms (dormitory_id, building, floor, room_number, room_code, monthly_rent, notes,

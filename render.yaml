@@ -2,11 +2,15 @@ services:
   - type: web
     name: rms-cyn
     env: node
+    # ============================================================
+    # PLAN GUIDE:
+    # - free    : data ephemeral, ดี ลอง/demo, ไม่เหมาะลูกค้าจริง
+    # - starter : $7/mo, ต้องใช้คู่กับ disk: ด้านล่าง — ข้อมูลถาวร
+    # ============================================================
     plan: free
     buildCommand: npm install
     startCommand: node scripts/seed.js && node server.js
-    # NOTE: persistent disk requires plan: starter ($7/mo)
-    # ถ้าต้องการข้อมูลไม่หาย uncomment บรรทัดด้านล่างแล้วเปลี่ยน plan เป็น starter
+    # ⚠️ FOR PAID CUSTOMERS: เปลี่ยน plan: starter, uncomment disk:
     # disk:
     #   name: rms-data
     #   mountPath: /data
@@ -22,15 +26,28 @@ services:
         value: https://cyn-jewelry.com/RMS
       - key: SESSION_SECRET
         generateValue: true
+      # ============================================================
+      # DEMO MODE:
+      # SEED_DEMO=true        → seed creates demo tenants + bills + maintenance
+      # ENABLE_DEMO_INFO=true → /demo-info page is publicly accessible
+      # *** SET BOTH TO "false" BEFORE OPENING TO PAID CUSTOMERS ***
+      # ============================================================
       - key: SEED_DEMO
         value: "true"
-      # DATA_DIR: uncomment เมื่อ mount persistent disk แล้ว
+      - key: ENABLE_DEMO_INFO
+        value: "true"
+      # PASSWORD_SYNC=true: re-hash ADMIN_PASSWORD on every boot
+      # (lets owner rotate password by changing env var alone)
+      - key: PASSWORD_SYNC
+        value: "false"
+      # DATA_DIR: uncomment when persistent disk is mounted (starter plan)
       # - key: DATA_DIR
       #   value: /data
       - key: ADMIN_NAME
         value: เจ้าของหอ
       - key: ADMIN_EMAIL
         value: admin@rms-demo.com
+      # ⚠️ Default password — must be changed by customer on first login
       - key: ADMIN_PASSWORD
         value: demo1234
       - key: DORMITORY_NAME

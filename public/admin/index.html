@@ -136,7 +136,14 @@
 
   <!-- BILLING -->
   <div id="page-billing" class="page p-8 fade-in">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">ออกบิลประจำเดือน</h2>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">ออกบิลประจำเดือน</h2>
+      <div class="flex gap-2">
+        <a href="javascript:exportCsv('bills')" class="text-sm bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg hover:bg-emerald-100"><i class="ph ph-download-simple"></i> ส่งออกบิล (CSV)</a>
+        <a href="javascript:exportCsv('payments')" class="text-sm bg-blue-50 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-100"><i class="ph ph-download-simple"></i> ส่งออกการชำระ</a>
+        <a href="javascript:exportCsv('tenants')" class="text-sm bg-purple-50 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-100"><i class="ph ph-download-simple"></i> ส่งออกผู้เช่า</a>
+      </div>
+    </div>
 
     <!-- Billing mode toggle -->
     <div class="flex gap-2 mb-4">
@@ -780,6 +787,63 @@
   </div>
 </div>
 
+<!-- Manual Add Tenant Modal (no LINE required) -->
+<div id="manualTenantModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+    <div class="flex justify-between items-center p-4 border-b border-gray-100">
+      <h3 class="font-bold text-gray-900">เพิ่มผู้เช่าด้วยตนเอง</h3>
+      <button onclick="closeModal('manualTenantModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button>
+    </div>
+    <form id="manualTenantForm" class="p-5 space-y-4">
+      <input type="hidden" id="mtRoomId">
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+        <i class="ph ph-info"></i> เพิ่มผู้เช่าโดยกรอกข้อมูลโดยตรง — ไม่ต้องผ่าน LINE
+        <p class="text-xs text-blue-600 mt-1">ห้อง: <strong id="mtRoomCode">-</strong> • ค่าเช่า: <strong id="mtRent">-</strong> ฿/เดือน</p>
+      </div>
+      <div>
+        <label class="label">ชื่อผู้เช่า <span class="text-red-500">*</span></label>
+        <input id="mtName" required class="input" placeholder="เช่น นายสมชาย ใจดี">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">เบอร์โทร</label>
+          <input id="mtPhone" class="input" placeholder="08x-xxx-xxxx">
+        </div>
+        <div>
+          <label class="label">เลขบัตร ปชช.</label>
+          <input id="mtIdCard" class="input" placeholder="1-1234-...">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">วันเริ่มสัญญา</label>
+          <input id="mtStart" type="date" class="input">
+        </div>
+        <div>
+          <label class="label">ระยะสัญญา</label>
+          <select id="mtDuration" class="input">
+            <option value="6">6 เดือน</option>
+            <option value="12" selected>1 ปี</option>
+            <option value="24">2 ปี</option>
+            <option value="36">3 ปี</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="label">ค่ามัดจำ (บาท)</label>
+        <input id="mtDeposit" type="number" min="0" step="100" class="input" placeholder="เช่น 7000 (2 เดือน)">
+        <p class="text-xs text-gray-500 mt-1">มาตรฐาน: 2 เท่าค่าเช่าเดือนแรก</p>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal('manualTenantModal')" class="flex-1 border border-gray-200 py-2.5 rounded-xl text-sm font-medium">ยกเลิก</button>
+        <button type="submit" class="flex-1 bg-green-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-green-700">
+          <i class="ph ph-user-plus"></i> เพิ่มผู้เช่า
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="slipModal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
   <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
     <div class="flex justify-between items-center p-4 border-b border-gray-100"><h3 class="font-bold text-gray-900" id="slipModalTitle">สลิปการโอนเงิน</h3><button onclick="closeModal('slipModal')" class="text-gray-400"><i class="ph ph-x text-xl"></i></button></div>
@@ -1372,7 +1436,8 @@ function roomCard(r) {
     ${occupied ? `<p class="text-xs text-gray-700 font-medium mb-1 truncate"><i class="ph ph-user text-gray-400"></i> ${r.tenant_name}</p>` : ''}
     ${r.last_bill_month ? `<div class="flex items-center gap-2 mt-2">${billBadge}<span class="text-xs text-gray-400">${r.last_bill_month} ฿${fmt(r.last_bill_amount)}</span></div>` : ''}
     <div class="flex gap-1 mt-3 flex-wrap">
-      <button onclick="generateInvite(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-line/10 text-line px-2 py-1 rounded-lg hover:bg-line/20"><i class="ph ph-link-simple"></i> Invite</button>
+      ${occupied ? '' : `<button onclick='openManualTenant(${JSON.stringify(r).replace(/"/g,"&quot;")})' class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg hover:bg-green-100 font-medium"><i class="ph ph-user-plus"></i> เพิ่มผู้เช่า</button>`}
+      <button onclick="generateInvite(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-line/10 text-line px-2 py-1 rounded-lg hover:bg-line/20" title="ลิงก์เชิญผ่าน LINE (Phase 2)" style="display:none"><i class="ph ph-link-simple"></i> Invite</button>
       <button onclick='openEditRoom(${JSON.stringify(r).replace(/"/g,"&quot;")})' class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-200"><i class="ph ph-pencil-simple"></i> แก้ไข</button>
       ${occupied ? `<button onclick="confirmCheckout(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg hover:bg-red-100"><i class="ph ph-door-open"></i> Out</button>` : `<button onclick="confirmDelete(${r.id},'${r.room_code||r.room_number}')" class="text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg hover:bg-red-100"><i class="ph ph-trash"></i></button>`}
     </div>
@@ -1417,6 +1482,54 @@ document.getElementById('roomForm').addEventListener('submit', async e => {
     else await api('/api/admin/rooms', { method: 'POST', body: JSON.stringify(data) });
     closeModal('roomModal'); loadRooms();
   } catch(err) { alert(err.message); }
+});
+
+// CSV export — opens in new tab; session cookie auto-sent
+function exportCsv(type) {
+  const base = window.__RMS_BASE__ || '';
+  window.location.href = `${base}/api/admin/export/${type}.csv`;
+}
+
+// Manual tenant creation (web-only, no LINE)
+function openManualTenant(room) {
+  document.getElementById('mtRoomId').value = room.id;
+  document.getElementById('mtRoomCode').textContent = room.room_code || room.room_number;
+  document.getElementById('mtRent').textContent = (room.monthly_rent || 0).toLocaleString();
+  document.getElementById('mtName').value = '';
+  document.getElementById('mtPhone').value = '';
+  document.getElementById('mtIdCard').value = '';
+  document.getElementById('mtStart').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mtDuration').value = '12';
+  document.getElementById('mtDeposit').value = (room.monthly_rent || 0) * 2;
+  openModal('manualTenantModal');
+  setTimeout(() => document.getElementById('mtName').focus(), 100);
+}
+
+document.getElementById('manualTenantForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.submitter; if (btn) btn.disabled = true;
+  const roomId = document.getElementById('mtRoomId').value;
+  const deposit = parseFloat(document.getElementById('mtDeposit').value) || 0;
+  const data = {
+    tenant_name: document.getElementById('mtName').value.trim(),
+    tenant_phone: document.getElementById('mtPhone').value.trim(),
+    tenant_id_card: document.getElementById('mtIdCard').value.trim(),
+    start_date: document.getElementById('mtStart').value,
+    duration_months: parseInt(document.getElementById('mtDuration').value) || 12,
+    deposits: deposit > 0 ? [{ code: 'room_deposit', label: 'ค่ามัดจำห้อง', amount: deposit }] : []
+  };
+  try {
+    const r = await api(`/api/admin/operator/rooms/${roomId}/quick-add-tenant`, {
+      method: 'POST', body: JSON.stringify(data)
+    });
+    closeModal('manualTenantModal');
+    alert(`✅ เพิ่มผู้เช่าสำเร็จ\nสัญญา: ${r.contract_number || 'N/A'}\nระยะ: ${r.duration_months} เดือน`);
+    loadRooms();
+  } catch (err) {
+    alert('เพิ่มไม่สำเร็จ: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 });
 
 async function generateInvite(roomId, roomCode) {

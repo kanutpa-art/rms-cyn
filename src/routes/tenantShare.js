@@ -33,6 +33,25 @@ function requireTenantToken(req, res, next) {
   next();
 }
 
+// Clean up uploaded files (single or array) — prevents disk leak on bad-token uploads
+function cleanupFiles(req) {
+  try {
+    if (req.file) fs.unlinkSync(req.file.path);
+    if (Array.isArray(req.files)) req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch (_) {} });
+  } catch (_) {}
+}
+
+// Middleware: token-aware multer rejection
+function rejectIfInvalidToken(req, res, next) {
+  const t = resolveTenant(req.params.token);
+  if (!t) {
+    cleanupFiles(req);
+    return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
+  }
+  req.tenantCtx = t;
+  next();
+}
+
 // ============================================================
 // GET /share/info/:token  →  read-only tenant info
 // ============================================================
@@ -102,11 +121,10 @@ router.get('/info/:token', (req, res) => {
 // ============================================================
 // MAINTENANCE — submit + list
 // ============================================================
-router.post('/:token/maintenance', uploadMaint.array('images', 5), validateImageMagic, (req, res) => {
-  const t = resolveTenant(req.params.token);
-  if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
+router.post('/:token/maintenance', uploadMaint.array('images', 5), validateImageMagic, rejectIfInvalidToken, (req, res) => {
+  const t = req.tenantCtx;
   const { title, description } = req.body;
-  if (!title) return res.status(400).json({ error: 'กรุณากรอกหัวข้อ' });
+  if (!title) { cleanupFiles(req); return res.status(400).json({ error: 'กรุณากรอกหัวข้อ' }); }
   const files = (req.files || []).map(f => `/uploads/maintenance/${f.filename}`);
   const imagePath = files[0] || null;          // legacy: store first as image_path
   const imagesJson = files.length ? JSON.stringify(files) : null;
@@ -129,13 +147,12 @@ router.get('/:token/maintenance', requireTenantToken, (req, res) => {
 // ============================================================
 // MOVE-OUT — submit + status
 // ============================================================
-router.post('/:token/move-out', uploadMoveOut.array('images', 5), validateImageMagic, (req, res) => {
-  const t = resolveTenant(req.params.token);
-  if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
+router.post('/:token/move-out', uploadMoveOut.array('images', 5), validateImageMagic, rejectIfInvalidToken, (req, res) => {
+  const t = req.tenantCtx;
   const { requested_date, reason } = req.body;
-  if (!requested_date) return res.status(400).json({ error: 'กรุณาเลือกวันที่ต้องการย้ายออก' });
+  if (!requested_date) { cleanupFiles(req); return res.status(400).json({ error: 'กรุณาเลือกวันที่ต้องการย้ายออก' }); }
   const existing = db.prepare(`SELECT id FROM move_out_requests WHERE tenant_id=? AND status IN ('pending','approved')`).get(t.tenant_id);
-  if (existing) return res.status(400).json({ error: 'มีคำร้องค้างอยู่แล้ว' });
+  if (existing) { cleanupFiles(req); return res.status(400).json({ error: 'มีคำร้องค้างอยู่แล้ว' }); }
   const files = (req.files || []).map(f => `/uploads/move_out/${f.filename}`);
   const imagesJson = files.length ? JSON.stringify(files) : null;
   const r = db.prepare(`INSERT INTO move_out_requests (tenant_id, room_id, requested_date, reason, images_json, status)
@@ -155,14 +172,13 @@ router.get('/:token/move-out', requireTenantToken, (req, res) => {
 // ============================================================
 // CONTRACT RENEWAL — submit + status
 // ============================================================
-router.post('/:token/renew', uploadRenewal.array('images', 5), validateImageMagic, (req, res) => {
-  const t = resolveTenant(req.params.token);
-  if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
+router.post('/:token/renew', uploadRenewal.array('images', 5), validateImageMagic, rejectIfInvalidToken, (req, res) => {
+  const t = req.tenantCtx;
   const months = parseInt(req.body.months);
   const note = req.body.note;
-  if (!months || months < 1 || months > 60) return res.status(400).json({ error: 'จำนวนเดือนไม่ถูกต้อง' });
+  if (!months || months < 1 || months > 60) { cleanupFiles(req); return res.status(400).json({ error: 'จำนวนเดือนไม่ถูกต้อง' }); }
   const existing = db.prepare(`SELECT id FROM contract_renewal_requests WHERE tenant_id=? AND status='pending'`).get(t.tenant_id);
-  if (existing) return res.status(400).json({ error: 'มีคำร้องค้างอยู่แล้ว' });
+  if (existing) { cleanupFiles(req); return res.status(400).json({ error: 'มีคำร้องค้างอยู่แล้ว' }); }
   const files = (req.files || []).map(f => `/uploads/renewal/${f.filename}`);
   const imagesJson = files.length ? JSON.stringify(files) : null;
   const r = db.prepare(`INSERT INTO contract_renewal_requests (tenant_id, room_id, requested_months, note, images_json, status)
@@ -182,11 +198,10 @@ router.get('/:token/renew', requireTenantToken, (req, res) => {
 // ============================================================
 // BILL — pay (upload slip)
 // ============================================================
-router.post('/:token/bills/:id/pay', uploadSlip.single('slip'), validateImageMagic, (req, res) => {
-  const t = resolveTenant(req.params.token);
-  if (!t) return res.status(404).json({ error: 'ไม่พบลิงก์ผู้เช่า' });
+router.post('/:token/bills/:id/pay', uploadSlip.single('slip'), validateImageMagic, rejectIfInvalidToken, (req, res) => {
+  const t = req.tenantCtx;
   const bill = db.prepare('SELECT * FROM bills WHERE id=? AND room_id=?').get(req.params.id, t.room_id);
-  if (!bill) return res.status(404).json({ error: 'ไม่พบบิล' });
+  if (!bill) { cleanupFiles(req); return res.status(404).json({ error: 'ไม่พบบิล' }); }
   if (!req.file) return res.status(400).json({ error: 'กรุณาแนบสลิป' });
 
   // ป้องกัน payment ซ้ำ (CHAOS-006: double submit / network retry)

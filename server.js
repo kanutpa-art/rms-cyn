@@ -216,6 +216,11 @@ if (BASE) app.get(`${BASE}/health`, healthHandler);
 // Demo info page — แสดง credential + สถิติ สำหรับทดสอบระบบ
 // ============================================================
 function demoInfoHandler(req, res) {
+  // Hard guard: only enable when explicitly opted in.
+  // For paid customers ENABLE_DEMO_INFO should NEVER be set to 'true'.
+  if (process.env.ENABLE_DEMO_INFO !== 'true') {
+    return res.status(404).send('Not Found');
+  }
   try {
     const dorm = db.prepare('SELECT * FROM dormitories LIMIT 1').get();
     const stats = dorm ? {

@@ -552,6 +552,27 @@ function tryAddColumn(table, col, ddl) {
   }
 }
 
+// audit log + login attempts (added in production hardening sprint)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_user_id INTEGER,
+    action TEXT NOT NULL,
+    details TEXT,
+    ip TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_admin ON admin_audit_log(admin_user_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_created ON admin_audit_log(created_at);
+
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    email TEXT PRIMARY KEY,
+    fail_count INTEGER DEFAULT 0,
+    last_fail_at DATETIME,
+    locked_until DATETIME
+  );
+`);
+
 // rooms: operational status (operator view)
 tryAddColumn('rooms', 'operational_status', "TEXT DEFAULT 'vacant'");
 tryAddColumn('rooms', 'status_note', 'TEXT');
