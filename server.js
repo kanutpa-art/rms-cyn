@@ -151,18 +151,16 @@ app.use(helmet({
     useDefaults: true,
     directives: {
       defaultSrc: ["'self'"],
-      // Scripts: self + nonce only. unsafe-inline kept as legacy fallback for
-      // browsers that ignore nonces (will be removed once we eliminate inline JS in Phase 2).
+      // Scripts: self + nonce. unsafe-inline kept temporarily for onclick="..."
+      // handlers still scattered in admin/index.html (Phase 3 will eliminate).
       scriptSrc: [
         "'self'",
         (req, res) => `'nonce-${req.cspNonce}'`,
-        "https://cdn.tailwindcss.com",          // Tailwind CDN (Phase 2 → self-host)
-        "https://unpkg.com",                      // Phosphor icons CDN (Phase 2 → self-host)
-        "https://static.line-scdn.net",           // LIFF SDK (when LINE Phase 2 enabled)
-        "'unsafe-inline'",                        // Legacy — drop in Phase 2
+        "https://static.line-scdn.net",   // LIFF SDK (when LINE Phase 2 enabled)
+        "'unsafe-inline'",                // Legacy — drop in Phase 3
       ],
-      // Styles: tailwind generates inline classes, allow self + inline
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+      // Styles: tailwind generates inline classes via attribute selectors → unsafe-inline needed
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https://profile.line-scdn.net"],
       connectSrc: ["'self'", "https://api.line.me"],
@@ -269,16 +267,57 @@ app.use(session({
 // ============================================================
 // Health check (for UptimeRobot / Render readiness probe)
 // ============================================================
+// Track app boot time + version for /health
+const APP_VERSION = process.env.RENDER_GIT_COMMIT?.slice(0, 7) || require('./package.json').version;
+const APP_BOOT_AT = new Date().toISOString();
+
 function healthHandler(req, res) {
+  // No-cache so monitoring tools always get a fresh ping
+  res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  const startedAt = Date.now();
   try {
-    db.prepare('SELECT 1').get();
-    res.json({ status: 'ok', uptime: Math.floor(process.uptime()), env: process.env.NODE_ENV || 'development' });
+    const dbResult = db.prepare('SELECT COUNT(*) as c FROM dormitories').get();
+    const sessionCount = db.prepare('SELECT COUNT(*) as c FROM sessions WHERE expired_at > ?').get(Date.now()).c;
+    const dbLatencyMs = Date.now() - startedAt;
+    const mem = process.memoryUsage();
+
+    res.json({
+      status: 'ok',
+      version: APP_VERSION,
+      uptime: Math.floor(process.uptime()),
+      boot_at: APP_BOOT_AT,
+      env: process.env.NODE_ENV || 'development',
+      node: process.version,
+      db: {
+        status: 'connected',
+        latency_ms: dbLatencyMs,
+        dormitories: dbResult.c,
+      },
+      sessions: {
+        active: sessionCount,
+      },
+      memory_mb: {
+        rss:       Math.round(mem.rss / 1024 / 1024),
+        heap_used: Math.round(mem.heapUsed / 1024 / 1024),
+        heap_total: Math.round(mem.heapTotal / 1024 / 1024),
+      },
+      timestamp: new Date().toISOString(),
+    });
   } catch (e) {
-    res.status(503).json({ status: 'error', error: e.message });
+    res.status(503).json({
+      status: 'error',
+      version: APP_VERSION,
+      db: { status: 'disconnected', error: e.message },
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 app.get('/health', healthHandler);
-if (BASE) app.get(`${BASE}/health`, healthHandler);
+app.get('/api/health', healthHandler);  // canonical API path per Phase 2.10 spec
+if (BASE) {
+  app.get(`${BASE}/health`, healthHandler);
+  app.get(`${BASE}/api/health`, healthHandler);
+}
 
 // ============================================================
 // Demo info page — แสดง credential + สถิติ สำหรับทดสอบระบบ
